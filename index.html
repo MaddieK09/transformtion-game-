@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game V11 - Real Human Models</title>
+  <title>Transformation Game V12 - Morph Inspector</title>
 
   <style>
     * {
@@ -43,7 +43,7 @@
     }
 
     .panel {
-      max-width: 560px;
+      max-width: 620px;
       margin: auto;
       padding: 11px 13px;
       border-radius: 17px;
@@ -72,32 +72,75 @@
       white-space: pre-line;
     }
 
-    #bottomUI {
+    #controlsWrap {
       position: fixed;
-      left: 7px;
-      right: 7px;
-      bottom: calc(env(safe-area-inset-bottom) + 9px);
+      left: 8px;
+      right: 8px;
+      bottom: calc(env(safe-area-inset-bottom) + 8px);
       z-index: 30;
+      max-height: 43vh;
+      overflow: auto;
+      border-radius: 18px;
+      background: rgba(12, 14, 18, 0.90);
+      padding: 10px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #topButtons {
       display: flex;
-      justify-content: center;
       gap: 7px;
       flex-wrap: wrap;
+      margin-bottom: 10px;
     }
 
     button {
       border: 0;
-      border-radius: 15px;
-      padding: 12px 13px;
-      min-width: 102px;
+      border-radius: 13px;
+      padding: 10px 11px;
+      min-width: 95px;
       color: #111;
       background: rgba(255,255,255,0.94);
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 800;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.26);
     }
 
     button:active {
       transform: scale(0.97);
+    }
+
+    .morphRow {
+      padding: 9px 2px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .morphRow:first-child {
+      border-top: none;
+    }
+
+    .morphLabel {
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 5px;
+      word-break: break-word;
+    }
+
+    .morphLine {
+      display: grid;
+      grid-template-columns: 1fr 46px;
+      gap: 8px;
+      align-items: center;
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+
+    .valueBox {
+      color: white;
+      font-size: 11px;
+      text-align: right;
+      opacity: 0.85;
     }
 
     #loading {
@@ -119,7 +162,7 @@
       display: none;
       position: fixed;
       z-index: 200;
-      top: 26%;
+      top: 25%;
       left: 15px;
       right: 15px;
       padding: 18px;
@@ -135,25 +178,25 @@
 <body>
   <div id="game"></div>
 
-  <div id="loading">
-    Loading the real male + female GLB modelsâ¦
-  </div>
-
+  <div id="loading">Loading V12 morph inspectorâ¦</div>
   <div id="fatal"></div>
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game â V11 Real Human Models</div>
-      <div id="status" class="status">Loading real GLB humansâ¦</div>
+      <div class="title">Transformation Game â V12 Female Morph Inspector</div>
+      <div id="status" class="status">Loading female GLB and morph targetsâ¦</div>
       <div id="debug" class="debug"></div>
     </div>
   </div>
 
-  <div id="bottomUI">
-    <button id="bodyViewBtn">BODY VIEW</button>
-    <button id="lookBtn">LOOK DOWN</button>
-    <button id="maleBtn">MALE</button>
-    <button id="femaleBtn">FEMALE</button>
+  <div id="controlsWrap">
+    <div id="topButtons">
+      <button id="bodyViewBtn">BODY VIEW</button>
+      <button id="lookBtn">LOOK DOWN</button>
+      <button id="resetBtn">RESET MORPHS</button>
+      <button id="randomBtn">RANDOM TEST</button>
+    </div>
+    <div id="morphList"></div>
   </div>
 
   <script type="importmap">
@@ -173,13 +216,14 @@
     const fatal = document.getElementById("fatal");
     const statusEl = document.getElementById("status");
     const debugEl = document.getElementById("debug");
+    const morphList = document.getElementById("morphList");
 
     function fail(error) {
       console.error(error);
       loading.style.display = "none";
       fatal.style.display = "block";
       fatal.textContent =
-        "V11 ERROR\n\n" +
+        "V12 ERROR\n\n" +
         (error?.stack || error?.message || String(error)) +
         "\n\nSend me a screenshot of this red box.";
     }
@@ -191,10 +235,6 @@
     window.addEventListener("unhandledrejection", e => {
       fail(e.reason);
     });
-
-    // =========================================================
-    // THREE.JS SETUP
-    // =========================================================
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x94d7f2);
@@ -214,17 +254,15 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-
     document.getElementById("game").appendChild(renderer.domElement);
 
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x64707a, 2.5);
-    scene.add(hemi);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x64707a, 2.4));
 
-    const key = new THREE.DirectionalLight(0xffffff, 3.0);
+    const key = new THREE.DirectionalLight(0xffffff, 2.7);
     key.position.set(4, 8, 5);
     scene.add(key);
 
-    const fill = new THREE.DirectionalLight(0xd8e7ff, 1.3);
+    const fill = new THREE.DirectionalLight(0xd8e7ff, 1.2);
     fill.position.set(-4, 3, 2);
     scene.add(fill);
 
@@ -238,7 +276,6 @@
     floor.rotation.x = -Math.PI / 2;
     scene.add(floor);
 
-    // Simple room reference objects.
     function box(x, y, z, sx, sy, sz, color) {
       const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
@@ -253,227 +290,177 @@
     box(-5, 1.5, -1, 0.2, 3, 10, 0xd8dde1);
     box(5, 1.5, -1, 0.2, 3, 10, 0xd8dde1);
 
-    // =========================================================
-    // MODEL LOADING
-    // =========================================================
-
     const loader = new GLTFLoader();
 
     function loadGLB(url) {
       return new Promise((resolve, reject) => {
-        loader.load(
-          url,
-          gltf => resolve(gltf),
-          undefined,
-          reject
-        );
+        loader.load(url, resolve, undefined, reject);
       });
     }
 
     function getBounds(object) {
       object.updateMatrixWorld(true);
-
       const box = new THREE.Box3().setFromObject(object);
       const size = new THREE.Vector3();
       const center = new THREE.Vector3();
-
       box.getSize(size);
       box.getCenter(center);
-
       return { box, size, center };
     }
 
-    function normalizeModel(root, targetHeight = 1.75) {
-      root.updateMatrixWorld(true);
+    function normalizeModel(root, targetHeight = 1.65) {
+      let b = getBounds(root);
 
-      let data = getBounds(root);
-
-      if (!isFinite(data.size.y) || data.size.y <= 0.001) {
-        throw new Error("Model bounding box height is invalid.");
+      if (!isFinite(b.size.y) || b.size.y <= 0.001) {
+        throw new Error("Invalid female model bounding box.");
       }
 
-      const scale = targetHeight / data.size.y;
+      const scale = targetHeight / b.size.y;
       root.scale.multiplyScalar(scale);
-
-      root.updateMatrixWorld(true);
-      data = getBounds(root);
-
-      // Center left/right and move feet to y=0.
-      root.position.x -= data.center.x;
-      root.position.z -= data.center.z;
-      root.position.y -= data.box.min.y;
-
       root.updateMatrixWorld(true);
 
+      b = getBounds(root);
+
+      root.position.x -= b.center.x;
+      root.position.z -= b.center.z;
+      root.position.y -= b.box.min.y;
+
+      root.updateMatrixWorld(true);
       return getBounds(root);
     }
 
-    function makeMaterialsOpaque(root) {
-      root.traverse(obj => {
-        if (!obj.isMesh) return;
+    let femaleRoot;
+    let femaleBounds;
 
-        obj.frustumCulled = false;
+    const morphTargets = [];
+    const sliderRefs = [];
 
-        const materials = Array.isArray(obj.material)
-          ? obj.material
-          : [obj.material];
-
-        for (const mat of materials) {
-          if (!mat) continue;
-          mat.transparent = false;
-          mat.opacity = 1;
-          mat.depthWrite = true;
-          mat.side = THREE.FrontSide;
-          mat.needsUpdate = true;
-        }
-      });
-    }
-
-    function collectStats(root) {
-      const rows = [];
+    function collectMorphTargets(root) {
+      morphTargets.length = 0;
 
       root.traverse(obj => {
         if (!obj.isMesh && !obj.isSkinnedMesh) return;
 
-        const geometry = obj.geometry;
-        const pos = geometry?.attributes?.position;
-        const morphCount =
-          geometry?.morphAttributes?.position?.length || 0;
+        const dict = obj.morphTargetDictionary || {};
+        const influences = obj.morphTargetInfluences || [];
 
-        rows.push({
-          name: obj.name || "(unnamed)",
-          skinned: !!obj.isSkinnedMesh,
-          vertices: pos?.count || 0,
-          morphTargets: morphCount
+        for (const [name, index] of Object.entries(dict)) {
+          morphTargets.push({
+            mesh: obj,
+            meshName: obj.name || "(unnamed mesh)",
+            name,
+            index,
+            influences
+          });
+        }
+      });
+    }
+
+    function buildMorphUI() {
+      morphList.innerHTML = "";
+      sliderRefs.length = 0;
+
+      if (morphTargets.length === 0) {
+        const div = document.createElement("div");
+        div.className = "morphLabel";
+        div.textContent = "No named morph targets found.";
+        morphList.appendChild(div);
+        return;
+      }
+
+      morphTargets.forEach((morph, i) => {
+        const row = document.createElement("div");
+        row.className = "morphRow";
+
+        const label = document.createElement("div");
+        label.className = "morphLabel";
+        label.textContent =
+          `${i + 1}. ${morph.name} â ${morph.meshName}`;
+
+        const line = document.createElement("div");
+        line.className = "morphLine";
+
+        const slider = document.createElement("input");
+        slider.type = "range";
+        slider.min = "-1";
+        slider.max = "1";
+        slider.step = "0.01";
+        slider.value = String(morph.influences[morph.index] || 0);
+
+        const value = document.createElement("div");
+        value.className = "valueBox";
+        value.textContent = Number(slider.value).toFixed(2);
+
+        slider.addEventListener("input", () => {
+          const v = Number(slider.value);
+          morph.influences[morph.index] = v;
+          value.textContent = v.toFixed(2);
+          statusEl.textContent =
+            `Testing morph: ${morph.name} = ${v.toFixed(2)}`;
+        });
+
+        line.appendChild(slider);
+        line.appendChild(value);
+
+        row.appendChild(label);
+        row.appendChild(line);
+
+        morphList.appendChild(row);
+
+        sliderRefs.push({
+          slider,
+          value,
+          morph
         });
       });
-
-      return rows;
     }
 
-    function topologySignature(stats) {
-      return stats
-        .map(x => `${x.vertices}:${x.morphTargets}`)
-        .sort()
-        .join("|");
+    function resetMorphs() {
+      for (const item of sliderRefs) {
+        item.slider.value = "0";
+        item.value.textContent = "0.00";
+        item.morph.influences[item.morph.index] = 0;
+      }
+
+      statusEl.textContent = "All female morphs reset to 0.";
     }
 
-    let maleRoot;
-    let femaleRoot;
-    let maleBounds;
-    let femaleBounds;
+    function randomMorphTest() {
+      resetMorphs();
 
-    let activeRoot = null;
-    let currentSex = "male";
+      if (sliderRefs.length === 0) return;
 
-    let maleStats = [];
-    let femaleStats = [];
-    let likelyCompatible = false;
+      const count = Math.min(3, sliderRefs.length);
+      const picked = [...sliderRefs]
+        .sort(() => Math.random() - 0.5)
+        .slice(0, count);
 
-    async function setupModels() {
-      statusEl.textContent = "Loading adult-male-lod.glbâ¦";
-      const maleGLTF = await loadGLB("./adult-male-lod.glb");
+      for (const item of picked) {
+        const v = Math.random() * 0.8;
+        item.slider.value = String(v);
+        item.value.textContent = v.toFixed(2);
+        item.morph.influences[item.morph.index] = v;
+      }
 
-      statusEl.textContent = "Loading adult-female-lod.glbâ¦";
-      const femaleGLTF = await loadGLB("./adult-female-lod.glb");
-
-      maleRoot = maleGLTF.scene;
-      femaleRoot = femaleGLTF.scene;
-
-      maleRoot.name = "MaleRealHuman";
-      femaleRoot.name = "FemaleRealHuman";
-
-      scene.add(maleRoot);
-      scene.add(femaleRoot);
-
-      makeMaterialsOpaque(maleRoot);
-      makeMaterialsOpaque(femaleRoot);
-
-      maleBounds = normalizeModel(maleRoot, 1.80);
-      femaleBounds = normalizeModel(femaleRoot, 1.65);
-
-      maleStats = collectStats(maleRoot);
-      femaleStats = collectStats(femaleRoot);
-
-      likelyCompatible =
-        topologySignature(maleStats) === topologySignature(femaleStats);
-
-      femaleRoot.visible = false;
-      maleRoot.visible = true;
-      activeRoot = maleRoot;
-
-      setBodyView();
-
-      loading.style.display = "none";
-
-      statusEl.textContent =
-        "REAL GLB HUMANS LOADED. Start by checking BODY VIEW.";
-
-      const maleVerts = maleStats.reduce((n, x) => n + x.vertices, 0);
-      const femaleVerts = femaleStats.reduce((n, x) => n + x.vertices, 0);
-      const maleMorphs = maleStats.reduce((n, x) => n + x.morphTargets, 0);
-      const femaleMorphs = femaleStats.reduce((n, x) => n + x.morphTargets, 0);
-
-      debugEl.textContent =
-        `male meshes ${maleStats.length} â¢ vertices ${maleVerts} â¢ morph targets ${maleMorphs}\n` +
-        `female meshes ${femaleStats.length} â¢ vertices ${femaleVerts} â¢ morph targets ${femaleMorphs}\n` +
-        `same raw topology signature: ${likelyCompatible ? "YES" : "NO"}`;
-
-      console.log("MALE MODEL STATS", maleStats);
-      console.log("FEMALE MODEL STATS", femaleStats);
-      console.log("SAME TOPOLOGY SIGNATURE?", likelyCompatible);
+      statusEl.textContent = "Random morph test applied.";
     }
 
-    // =========================================================
-    // MODEL SWITCHING
-    // =========================================================
+    document.getElementById("resetBtn")
+      .addEventListener("click", resetMorphs);
 
-    function showMale() {
-      currentSex = "male";
-      maleRoot.visible = true;
-      femaleRoot.visible = false;
-      activeRoot = maleRoot;
-
-      statusEl.textContent = "Real adult male model.";
-
-      if (!bodyView) setFirstPerson();
-    }
-
-    function showFemale() {
-      currentSex = "female";
-      maleRoot.visible = false;
-      femaleRoot.visible = true;
-      activeRoot = femaleRoot;
-
-      statusEl.textContent = "Real adult female model.";
-
-      if (!bodyView) setFirstPerson();
-    }
-
-    document.getElementById("maleBtn").addEventListener("click", showMale);
-    document.getElementById("femaleBtn").addEventListener("click", showFemale);
-
-    // =========================================================
-    // CAMERA
-    // =========================================================
+    document.getElementById("randomBtn")
+      .addEventListener("click", randomMorphTest);
 
     let bodyView = true;
     let yaw = 0;
     let pitch = THREE.MathUtils.degToRad(-6);
 
-    const bodyTarget = new THREE.Vector3();
-
-    function activeBounds() {
-      if (!activeRoot) return null;
-      return getBounds(activeRoot);
-    }
-
     function setBodyView() {
       bodyView = true;
 
-      if (!activeRoot) return;
+      if (!femaleRoot) return;
 
-      const b = activeBounds();
+      const b = getBounds(femaleRoot);
 
       camera.position.set(
         b.center.x + 1.55,
@@ -481,28 +468,21 @@
         b.center.z + 3.0
       );
 
-      bodyTarget.set(
+      camera.lookAt(
         b.center.x,
         b.box.min.y + b.size.y * 0.49,
         b.center.z
       );
 
-      camera.lookAt(bodyTarget);
-
-      statusEl.textContent =
-        currentSex === "male"
-          ? "BODY VIEW â real adult male model."
-          : "BODY VIEW â real adult female model.";
+      statusEl.textContent = "BODY VIEW â inspect morph changes.";
     }
 
     function setFirstPerson() {
       bodyView = false;
 
-      if (!activeRoot) return;
+      if (!femaleRoot) return;
 
-      const b = activeBounds();
-
-      // Estimate eye position from model bounds.
+      const b = getBounds(femaleRoot);
       const eyeY = b.box.min.y + b.size.y * 0.925;
 
       camera.position.set(
@@ -512,22 +492,13 @@
       );
 
       pitch = THREE.MathUtils.degToRad(-10);
-
-      statusEl.textContent =
-        "FIRST PERSON â drag to look, or press LOOK DOWN.";
+      statusEl.textContent = "FIRST PERSON â drag to look.";
     }
 
     function setLookDown() {
-      if (!activeRoot) return;
-
-      if (bodyView) {
-        setFirstPerson();
-      }
-
+      if (bodyView) setFirstPerson();
       pitch = THREE.MathUtils.degToRad(-66);
-
-      statusEl.textContent =
-        "LOOK DOWN â inspecting the real model from estimated eye height.";
+      statusEl.textContent = "LOOK DOWN â inspect morphs in first person.";
     }
 
     document.getElementById("bodyViewBtn")
@@ -536,14 +507,9 @@
     document.getElementById("lookBtn")
       .addEventListener("click", setLookDown);
 
-    // =========================================================
-    // DRAG LOOK
-    // =========================================================
-
     let dragging = false;
     let lastX = 0;
     let lastY = 0;
-
     const sensitivity = 0.004;
 
     function startDrag(x, y) {
@@ -599,10 +565,6 @@
     renderer.domElement.addEventListener("touchend", endDrag);
     renderer.domElement.addEventListener("touchcancel", endDrag);
 
-    // =========================================================
-    // FIRST-PERSON HEAD HIDING
-    // =========================================================
-
     function setHeadVisibility(root, visible) {
       if (!root) return;
 
@@ -611,7 +573,6 @@
 
         const n = (obj.name || "").toLowerCase();
 
-        // Only hide meshes explicitly named like head/hair/eyes in first person.
         if (
           n.includes("head") ||
           n.includes("hair") ||
@@ -623,24 +584,17 @@
       });
     }
 
-    // =========================================================
-    // LOOP
-    // =========================================================
-
     const euler = new THREE.Euler(0, 0, 0, "YXZ");
 
     function animate() {
       requestAnimationFrame(animate);
 
-      if (!bodyView && activeRoot) {
-        setHeadVisibility(maleRoot, currentSex !== "male");
-        setHeadVisibility(femaleRoot, currentSex !== "female");
-
+      if (!bodyView && femaleRoot) {
+        setHeadVisibility(femaleRoot, false);
         euler.set(pitch, yaw, 0);
         camera.quaternion.setFromEuler(euler);
-      } else {
-        if (maleRoot) setHeadVisibility(maleRoot, true);
-        if (femaleRoot) setHeadVisibility(femaleRoot, true);
+      } else if (femaleRoot) {
+        setHeadVisibility(femaleRoot, true);
       }
 
       renderer.render(scene, camera);
@@ -648,11 +602,38 @@
 
     animate();
 
-    setupModels().catch(fail);
+    async function setup() {
+      const gltf = await loadGLB("./adult-female-lod.glb");
 
-    // =========================================================
-    // RESIZE
-    // =========================================================
+      femaleRoot = gltf.scene;
+      scene.add(femaleRoot);
+
+      femaleBounds = normalizeModel(femaleRoot, 1.65);
+
+      collectMorphTargets(femaleRoot);
+      buildMorphUI();
+
+      const named = morphTargets.map(x => x.name);
+
+      debugEl.textContent =
+        `named morph controls found: ${morphTargets.length}\n` +
+        named.join(" â¢ ");
+
+      console.log("FEMALE MORPH TARGETS", morphTargets);
+
+      setBodyView();
+
+      loading.style.display = "none";
+      statusEl.textContent =
+        `Female model loaded. Found ${morphTargets.length} named morph controls.`;
+
+      if (morphTargets.length === 0) {
+        statusEl.textContent =
+          "Female model loaded, but no named morph controls were exposed.";
+      }
+    }
+
+    setup().catch(fail);
 
     window.addEventListener("resize", () => {
       camera.aspect = window.innerWidth / window.innerHeight;
