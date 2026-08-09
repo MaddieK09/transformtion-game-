@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game V15 - Rig Morph Prototype</title>
+  <title>Transformation Game V16 - Surface Bridge</title>
 
   <style>
     * {
@@ -43,12 +43,12 @@
     }
 
     .panel {
-      max-width: 620px;
+      max-width: 650px;
       margin: auto;
       padding: 11px 13px;
       border-radius: 17px;
       color: white;
-      background: rgba(0,0,0,0.66);
+      background: rgba(0,0,0,0.67);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
     }
@@ -68,6 +68,7 @@
     .debug {
       margin-top: 4px;
       font-size: 10px;
+      line-height: 1.35;
       opacity: 0.72;
       white-space: pre-line;
     }
@@ -78,10 +79,10 @@
       right: 8px;
       bottom: calc(env(safe-area-inset-bottom) + 8px);
       z-index: 30;
-      max-height: 44vh;
+      max-height: 43vh;
       overflow: auto;
       border-radius: 18px;
-      background: rgba(12,14,18,0.92);
+      background: rgba(12,14,18,0.93);
       padding: 10px;
       -webkit-overflow-scrolling: touch;
     }
@@ -97,11 +98,15 @@
       border: 0;
       border-radius: 13px;
       padding: 10px 11px;
-      min-width: 96px;
+      min-width: 94px;
       color: #111;
       background: rgba(255,255,255,0.94);
       font-size: 12px;
       font-weight: 800;
+    }
+
+    button:active {
+      transform: scale(0.97);
     }
 
     .controlRow {
@@ -139,7 +144,7 @@
       text-align: center;
       background: #101217;
       color: white;
-      font-size: 17px;
+      font-size: 16px;
       font-weight: 800;
     }
 
@@ -147,7 +152,7 @@
       display: none;
       position: fixed;
       z-index: 200;
-      top: 25%;
+      top: 20%;
       left: 15px;
       right: 15px;
       padding: 18px;
@@ -162,13 +167,13 @@
 
 <body>
   <div id="game"></div>
-  <div id="loading">Loading V15 rig-morph prototypeâ¦</div>
+  <div id="loading">Loading V16 and building male-to-female surface correspondenceâ¦</div>
   <div id="fatal"></div>
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game - V15 Shared-Rig Morph Prototype</div>
-      <div id="status" class="status">Loading male and female rigsâ¦</div>
+      <div class="title">Transformation Game - V16 Surface Bridge Experiment</div>
+      <div id="status" class="status">Loading both endpoint meshesâ¦</div>
       <div id="debug" class="debug"></div>
     </div>
   </div>
@@ -178,12 +183,14 @@
       <button id="bodyViewBtn">BODY VIEW</button>
       <button id="lookBtn">LOOK DOWN</button>
       <button id="resetBtn">RESET</button>
-      <button id="playBtn">PLAY RIG MORPH</button>
+      <button id="playBtn">PLAY BRIDGE</button>
+      <button id="femaleRefBtn">FEMALE REFERENCE</button>
+      <button id="bridgeBtn">BRIDGE MESH</button>
     </div>
 
     <div class="controlRow">
       <div class="labelLine">
-        <span>RIG TRANSFORMATION</span>
+        <span>SURFACE BRIDGE</span>
         <span id="progressValue" class="value">0%</span>
       </div>
       <input id="progressSlider" type="range" min="0" max="1" step="0.001" value="0">
@@ -215,7 +222,7 @@
       loading.style.display = "none";
       fatal.style.display = "block";
       fatal.textContent =
-        "V15 ERROR\n\n" +
+        "V16 ERROR\n\n" +
         (error?.stack || error?.message || String(error)) +
         "\n\nSend me a screenshot of this red box.";
     }
@@ -277,6 +284,7 @@
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshStandardMaterial({ color, roughness: 0.88 })
       );
+
       mesh.position.set(x,y,z);
       mesh.scale.set(sx,sy,sz);
       scene.add(mesh);
@@ -287,7 +295,7 @@
     roomBox(5, 1.5, -1, 0.2, 3, 10, 0xd8dde1);
 
     // =========================================================
-    // LOADING
+    // MODEL HELPERS
     // =========================================================
 
     const loader = new GLTFLoader();
@@ -300,16 +308,24 @@
 
     function getBounds(root) {
       root.updateMatrixWorld(true);
+
       const box = new THREE.Box3().setFromObject(root);
       const size = new THREE.Vector3();
       const center = new THREE.Vector3();
+
       box.getSize(size);
       box.getCenter(center);
+
       return { box, size, center };
     }
 
     function normalizeModel(root, targetHeight) {
       let b = getBounds(root);
+
+      if (!isFinite(b.size.y) || b.size.y <= 0.001) {
+        throw new Error("Invalid model bounds.");
+      }
+
       const scale = targetHeight / b.size.y;
       root.scale.multiplyScalar(scale);
       root.updateMatrixWorld(true);
@@ -322,147 +338,386 @@
       root.updateMatrixWorld(true);
     }
 
-    // =========================================================
-    // RIG MAPS
-    // =========================================================
-
-    function collectBones(root) {
-      const map = new Map();
+    function getRenderableMeshes(root) {
+      const out = [];
 
       root.traverse(obj => {
-        if (obj.isBone && obj.name) {
-          map.set(obj.name, obj);
+        if (obj.isMesh || obj.isSkinnedMesh) {
+          if (obj.geometry?.attributes?.position) {
+            out.push(obj);
+          }
         }
       });
-
-      return map;
-    }
-
-    function cloneTransform(bone) {
-      return {
-        position: bone.position.clone(),
-        quaternion: bone.quaternion.clone(),
-        scale: bone.scale.clone()
-      };
-    }
-
-    function collectRestTransforms(boneMap) {
-      const out = new Map();
-
-      for (const [name, bone] of boneMap) {
-        out.set(name, cloneTransform(bone));
-      }
 
       return out;
     }
 
-    function lerpTransform(targetBone, a, b, t) {
-      targetBone.position.lerpVectors(a.position, b.position, t);
-      targetBone.quaternion.copy(a.quaternion).slerp(b.quaternion, t);
-      targetBone.scale.lerpVectors(a.scale, b.scale, t);
+    function getSkinnedWorldVertex(mesh, index, target) {
+      target.fromBufferAttribute(mesh.geometry.attributes.position, index);
+
+      if (mesh.isSkinnedMesh && mesh.skeleton) {
+        mesh.applyBoneTransform(index, target);
+      }
+
+      return mesh.localToWorld(target);
+    }
+
+    function meshInfo(mesh) {
+      return {
+        mesh,
+        name: mesh.name || "(unnamed)",
+        vertices: mesh.geometry.attributes.position.count,
+        indices: mesh.geometry.index?.count || 0
+      };
+    }
+
+    // Pair each male mesh with one unused female mesh by closest vertex count.
+    function pairMeshes(maleMeshes, femaleMeshes) {
+      const femalePool = femaleMeshes.map(meshInfo);
+      const used = new Set();
+      const pairs = [];
+
+      for (const male of maleMeshes.map(meshInfo)) {
+        let best = null;
+        let bestScore = Infinity;
+
+        for (let i = 0; i < femalePool.length; i++) {
+          if (used.has(i)) continue;
+
+          const female = femalePool[i];
+
+          const vertexScore =
+            Math.abs(male.vertices - female.vertices);
+
+          const indexScore =
+            Math.abs(male.indices - female.indices) * 0.05;
+
+          const score = vertexScore + indexScore;
+
+          if (score < bestScore) {
+            bestScore = score;
+            best = { i, female };
+          }
+        }
+
+        if (!best) continue;
+
+        used.add(best.i);
+
+        pairs.push({
+          male,
+          female: best.female,
+          score: bestScore
+        });
+      }
+
+      return pairs;
+    }
+
+    // =========================================================
+    // SPATIAL HASH
+    // =========================================================
+
+    const CELL = 0.045;
+
+    function hashKey(x, y, z) {
+      return `${x}|${y}|${z}`;
+    }
+
+    function cellCoord(v) {
+      return Math.floor(v / CELL);
+    }
+
+    function buildSpatialHash(points) {
+      const map = new Map();
+
+      for (let i = 0; i < points.length; i += 3) {
+        const x = points[i];
+        const y = points[i + 1];
+        const z = points[i + 2];
+
+        const cx = cellCoord(x);
+        const cy = cellCoord(y);
+        const cz = cellCoord(z);
+
+        const key = hashKey(cx, cy, cz);
+
+        let bucket = map.get(key);
+
+        if (!bucket) {
+          bucket = [];
+          map.set(key, bucket);
+        }
+
+        bucket.push(i / 3);
+      }
+
+      return map;
+    }
+
+    function nearestPointIndex(px, py, pz, points, hash) {
+      const cx = cellCoord(px);
+      const cy = cellCoord(py);
+      const cz = cellCoord(pz);
+
+      let bestIndex = -1;
+      let bestDist = Infinity;
+
+      // Expand search until we find something.
+      for (let radius = 0; radius <= 4; radius++) {
+        let foundAny = false;
+
+        for (let dx = -radius; dx <= radius; dx++) {
+          for (let dy = -radius; dy <= radius; dy++) {
+            for (let dz = -radius; dz <= radius; dz++) {
+              // Only visit shell for radius > 0.
+              if (
+                radius > 0 &&
+                Math.abs(dx) !== radius &&
+                Math.abs(dy) !== radius &&
+                Math.abs(dz) !== radius
+              ) {
+                continue;
+              }
+
+              const bucket =
+                hash.get(hashKey(cx + dx, cy + dy, cz + dz));
+
+              if (!bucket) continue;
+
+              foundAny = true;
+
+              for (const idx of bucket) {
+                const k = idx * 3;
+
+                const qx = points[k];
+                const qy = points[k + 1];
+                const qz = points[k + 2];
+
+                const ddx = qx - px;
+                const ddy = qy - py;
+                const ddz = qz - pz;
+
+                const d =
+                  ddx * ddx +
+                  ddy * ddy +
+                  ddz * ddz;
+
+                if (d < bestDist) {
+                  bestDist = d;
+                  bestIndex = idx;
+                }
+              }
+            }
+          }
+        }
+
+        if (foundAny && bestIndex >= 0) {
+          return bestIndex;
+        }
+      }
+
+      // Extremely unlikely fallback: brute force.
+      for (let i = 0; i < points.length; i += 3) {
+        const qx = points[i];
+        const qy = points[i + 1];
+        const qz = points[i + 2];
+
+        const dx = qx - px;
+        const dy = qy - py;
+        const dz = qz - pz;
+
+        const d = dx*dx + dy*dy + dz*dz;
+
+        if (d < bestDist) {
+          bestDist = d;
+          bestIndex = i / 3;
+        }
+      }
+
+      return bestIndex;
+    }
+
+    // =========================================================
+    // BRIDGE BUILD
+    // =========================================================
+
+    let maleRoot;
+    let femaleRoot;
+
+    let bridgeGroup;
+    let bridgeParts = [];
+
+    let showingReference = false;
+
+    const tmp = new THREE.Vector3();
+
+    async function buildBridge() {
+      const maleMeshes = getRenderableMeshes(maleRoot);
+      const femaleMeshes = getRenderableMeshes(femaleRoot);
+
+      const pairs = pairMeshes(maleMeshes, femaleMeshes);
+
+      bridgeGroup = new THREE.Group();
+      bridgeGroup.name = "SurfaceBridge";
+      scene.add(bridgeGroup);
+
+      bridgeParts = [];
+
+      let totalVerts = 0;
+
+      for (let pIndex = 0; pIndex < pairs.length; pIndex++) {
+        const pair = pairs[pIndex];
+
+        statusEl.textContent =
+          `Building bridge mesh ${pIndex + 1}/${pairs.length}â¦`;
+
+        // Female rest-world positions.
+        const fCount = pair.female.vertices;
+        const femaleWorld = new Float32Array(fCount * 3);
+
+        for (let i = 0; i < fCount; i++) {
+          getSkinnedWorldVertex(pair.female.mesh, i, tmp);
+
+          const k = i * 3;
+          femaleWorld[k] = tmp.x;
+          femaleWorld[k + 1] = tmp.y;
+          femaleWorld[k + 2] = tmp.z;
+        }
+
+        const hash = buildSpatialHash(femaleWorld);
+
+        const mCount = pair.male.vertices;
+        const maleWorld = new Float32Array(mCount * 3);
+        const targetWorld = new Float32Array(mCount * 3);
+
+        for (let i = 0; i < mCount; i++) {
+          getSkinnedWorldVertex(pair.male.mesh, i, tmp);
+
+          const k = i * 3;
+
+          maleWorld[k] = tmp.x;
+          maleWorld[k + 1] = tmp.y;
+          maleWorld[k + 2] = tmp.z;
+
+          const nearest =
+            nearestPointIndex(
+              tmp.x,
+              tmp.y,
+              tmp.z,
+              femaleWorld,
+              hash
+            );
+
+          const fk = nearest * 3;
+
+          targetWorld[k] = femaleWorld[fk];
+          targetWorld[k + 1] = femaleWorld[fk + 1];
+          targetWorld[k + 2] = femaleWorld[fk + 2];
+        }
+
+        const geometry = new THREE.BufferGeometry();
+
+        const live = new Float32Array(maleWorld);
+        geometry.setAttribute(
+          "position",
+          new THREE.BufferAttribute(live, 3)
+        );
+
+        if (pair.male.mesh.geometry.index) {
+          geometry.setIndex(
+            pair.male.mesh.geometry.index.clone()
+          );
+        }
+
+        // Keep male UVs/material for this experiment.
+        const uv = pair.male.mesh.geometry.attributes.uv;
+
+        if (uv) {
+          geometry.setAttribute("uv", uv.clone());
+        }
+
+        geometry.computeVertexNormals();
+
+        let material;
+
+        if (Array.isArray(pair.male.mesh.material)) {
+          material = pair.male.mesh.material.map(m => m.clone());
+        } else if (pair.male.mesh.material) {
+          material = pair.male.mesh.material.clone();
+        } else {
+          material = new THREE.MeshStandardMaterial({
+            color: 0xd7aa8c,
+            roughness: 0.75
+          });
+        }
+
+        const bridgeMesh = new THREE.Mesh(geometry, material);
+        bridgeMesh.frustumCulled = false;
+
+        bridgeGroup.add(bridgeMesh);
+
+        bridgeParts.push({
+          mesh: bridgeMesh,
+          maleWorld,
+          targetWorld
+        });
+
+        totalVerts += mCount;
+
+        // Give Safari a chance to breathe between meshes.
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+
+      debugEl.textContent =
+        `paired meshes: ${pairs.length}\n` +
+        `bridge vertices: ${totalVerts}\n` +
+        `correspondence: nearest female surface point\n` +
+        `endpoint models remain available as references`;
+
+      maleRoot.visible = false;
+      femaleRoot.visible = false;
+      bridgeGroup.visible = true;
     }
 
     function smoothstep(t) {
       return t * t * (3 - 2 * t);
     }
 
-    // =========================================================
-    // MODELS
-    // =========================================================
+    let normalFrame = 0;
 
-    let maleRoot;
-    let femaleRoot;
+    function applyBridgeProgress(raw) {
+      const t = smoothstep(
+        THREE.MathUtils.clamp(raw, 0, 1)
+      );
 
-    let maleBones;
-    let femaleBones;
+      for (const part of bridgeParts) {
+        const pos = part.mesh.geometry.attributes.position.array;
+        const a = part.maleWorld;
+        const b = part.targetWorld;
 
-    let maleRest;
-    let femaleRest;
-
-    let sharedBoneNames = [];
-
-    // We will DISPLAY ONLY the male mesh for this prototype.
-    // Its real shared skeleton is gradually moved toward the female rig.
-    //
-    // That lets us physically test how far rig deformation alone can take
-    // the male endpoint mesh before we build the surface bridge.
-    let activeRoot;
-
-    function setFemaleMorphInfluence(p) {
-      if (!femaleRoot) return;
-
-      femaleRoot.traverse(obj => {
-        if (!obj.isMesh && !obj.isSkinnedMesh) return;
-        if (!obj.morphTargetDictionary || !obj.morphTargetInfluences) return;
-
-        for (const [name, idx] of Object.entries(obj.morphTargetDictionary)) {
-          const n = name.toLowerCase();
-
-          // During the final third, gently introduce body-shape morphs
-          // on the hidden female reference model so we can later use
-          // the same timing when we build the surface bridge.
-          if (n.includes("skinny")) {
-            obj.morphTargetInfluences[idx] = THREE.MathUtils.lerp(0.15, -0.10, p);
-          } else if (n.includes("muscular")) {
-            obj.morphTargetInfluences[idx] = THREE.MathUtils.lerp(0.12, 0.08, p);
-          } else if (n.includes("obese")) {
-            obj.morphTargetInfluences[idx] = THREE.MathUtils.lerp(-0.12, 0.20, p);
-          }
+        for (let i = 0; i < pos.length; i++) {
+          pos[i] = a[i] + (b[i] - a[i]) * t;
         }
-      });
-    }
 
-    function applyRigProgress(raw) {
-      const t = smoothstep(THREE.MathUtils.clamp(raw, 0, 1));
-
-      for (const name of sharedBoneNames) {
-        const maleBone = maleBones.get(name);
-        const a = maleRest.get(name);
-        const b = femaleRest.get(name);
-
-        if (!maleBone || !a || !b) continue;
-
-        lerpTransform(maleBone, a, b, t);
+        part.mesh.geometry.attributes.position.needsUpdate = true;
       }
 
-      // Global body height eases from male-normalized 1.80 to female-normalized 1.65.
-      // We use Y scale only on the displayed model root, keeping X/Z untouched.
-      const yScale = THREE.MathUtils.lerp(1.0, 1.65 / 1.80, t);
-      maleRoot.scale.y = maleRoot.userData.baseScaleY * yScale;
+      // Recalculate normals occasionally while autoplaying.
+      normalFrame++;
 
-      setFemaleMorphInfluence(t);
+      if (normalFrame % 4 === 0 || raw === 0 || raw === 1) {
+        for (const part of bridgeParts) {
+          part.mesh.geometry.computeVertexNormals();
+        }
+      }
 
       progressSlider.value = String(raw);
       progressValue.textContent = Math.round(raw * 100) + "%";
 
       statusEl.textContent =
-        `Shared-rig transformation â ${Math.round(raw * 100)}%`;
+        `Surface bridge geometry â ${Math.round(raw * 100)}%`;
     }
-
-    function resetRig() {
-      playing = false;
-
-      for (const name of sharedBoneNames) {
-        const bone = maleBones.get(name);
-        const a = maleRest.get(name);
-        if (!bone || !a) continue;
-
-        bone.position.copy(a.position);
-        bone.quaternion.copy(a.quaternion);
-        bone.scale.copy(a.scale);
-      }
-
-      maleRoot.scale.y = maleRoot.userData.baseScaleY;
-
-      progressSlider.value = "0";
-      progressValue.textContent = "0%";
-      statusEl.textContent = "Rig reset to real male endpoint.";
-    }
-
-    progressSlider.addEventListener("input", () => {
-      playing = false;
-      applyRigProgress(Number(progressSlider.value));
-    });
 
     // =========================================================
     // PLAYBACK
@@ -470,17 +725,58 @@
 
     let playing = false;
     let playStart = 0;
-    const PLAY_MS = 12000;
+    const PLAY_MS = 14000;
 
     document.getElementById("playBtn")
       .addEventListener("click", () => {
+        showingReference = false;
+        femaleRoot.visible = false;
+        bridgeGroup.visible = true;
+
         playing = true;
         playStart = performance.now();
-        applyRigProgress(0);
+        applyBridgeProgress(0);
       });
 
     document.getElementById("resetBtn")
-      .addEventListener("click", resetRig);
+      .addEventListener("click", () => {
+        playing = false;
+        showingReference = false;
+        femaleRoot.visible = false;
+        bridgeGroup.visible = true;
+        applyBridgeProgress(0);
+      });
+
+    progressSlider.addEventListener("input", () => {
+      playing = false;
+      showingReference = false;
+      femaleRoot.visible = false;
+      bridgeGroup.visible = true;
+      applyBridgeProgress(Number(progressSlider.value));
+    });
+
+    document.getElementById("femaleRefBtn")
+      .addEventListener("click", () => {
+        playing = false;
+        showingReference = true;
+        bridgeGroup.visible = false;
+        maleRoot.visible = false;
+        femaleRoot.visible = true;
+
+        statusEl.textContent =
+          "Real female endpoint reference. This is NOT part of the morph.";
+      });
+
+    document.getElementById("bridgeBtn")
+      .addEventListener("click", () => {
+        showingReference = false;
+        femaleRoot.visible = false;
+        maleRoot.visible = false;
+        bridgeGroup.visible = true;
+
+        statusEl.textContent =
+          "Surface bridge mesh restored.";
+      });
 
     // =========================================================
     // CAMERA
@@ -490,11 +786,18 @@
     let yaw = 0;
     let pitch = THREE.MathUtils.degToRad(-7);
 
+    function activeVisual() {
+      if (showingReference) return femaleRoot;
+      return bridgeGroup;
+    }
+
     function setBodyView() {
       bodyView = true;
-      if (!activeRoot) return;
 
-      const b = getBounds(activeRoot);
+      const visual = activeVisual();
+      if (!visual) return;
+
+      const b = getBounds(visual);
 
       camera.position.set(
         b.center.x + 1.5,
@@ -508,14 +811,19 @@
         b.center.z
       );
 
-      statusEl.textContent = "BODY VIEW â real male mesh, shared-rig deformation.";
+      statusEl.textContent =
+        showingReference
+          ? "BODY VIEW - real female reference."
+          : "BODY VIEW - surface bridge.";
     }
 
     function setFirstPerson() {
       bodyView = false;
-      if (!activeRoot) return;
 
-      const b = getBounds(activeRoot);
+      const visual = activeVisual();
+      if (!visual) return;
+
+      const b = getBounds(visual);
 
       camera.position.set(
         b.center.x,
@@ -524,13 +832,22 @@
       );
 
       pitch = THREE.MathUtils.degToRad(-10);
-      statusEl.textContent = "FIRST PERSON â rig morph active.";
+
+      statusEl.textContent =
+        showingReference
+          ? "FIRST PERSON - female reference."
+          : "FIRST PERSON - surface bridge.";
     }
 
     function lookDown() {
       if (bodyView) setFirstPerson();
+
       pitch = THREE.MathUtils.degToRad(-66);
-      statusEl.textContent = "LOOK DOWN â watch the rigged body deform.";
+
+      statusEl.textContent =
+        showingReference
+          ? "LOOK DOWN - female reference."
+          : "LOOK DOWN - watch the surface bridge.";
     }
 
     document.getElementById("bodyViewBtn")
@@ -591,6 +908,7 @@
       e => {
         if (e.touches.length === 1) {
           e.preventDefault();
+
           drag(
             e.touches[0].clientX,
             e.touches[0].clientY
@@ -602,25 +920,6 @@
 
     renderer.domElement.addEventListener("touchend", endDrag);
     renderer.domElement.addEventListener("touchcancel", endDrag);
-
-    function setHeadVisibility(root, visible) {
-      if (!root) return;
-
-      root.traverse(obj => {
-        if (!obj.isMesh && !obj.isSkinnedMesh) return;
-
-        const n = (obj.name || "").toLowerCase();
-
-        if (
-          n.includes("head") ||
-          n.includes("hair") ||
-          n.includes("eye") ||
-          n.includes("teeth")
-        ) {
-          obj.visible = visible;
-        }
-      });
-    }
 
     const euler = new THREE.Euler(0,0,0,"YXZ");
 
@@ -639,15 +938,12 @@
           playing = false;
         }
 
-        applyRigProgress(p);
+        applyBridgeProgress(p);
       }
 
-      if (!bodyView && activeRoot) {
-        setHeadVisibility(activeRoot, false);
+      if (!bodyView) {
         euler.set(pitch, yaw, 0);
         camera.quaternion.setFromEuler(euler);
-      } else if (activeRoot) {
-        setHeadVisibility(activeRoot, true);
       }
 
       renderer.render(scene, camera);
@@ -675,42 +971,18 @@
       normalizeModel(maleRoot, 1.80);
       normalizeModel(femaleRoot, 1.65);
 
-      // Save normalized male root Y scale before animation alters it.
-      maleRoot.userData.baseScaleY = maleRoot.scale.y;
-
-      maleBones = collectBones(maleRoot);
-      femaleBones = collectBones(femaleRoot);
-
-      maleRest = collectRestTransforms(maleBones);
-      femaleRest = collectRestTransforms(femaleBones);
-
-      sharedBoneNames =
-        [...maleBones.keys()]
-        .filter(name => femaleBones.has(name));
-
-      if (sharedBoneNames.length === 0) {
-        throw new Error("No shared bone names found.");
-      }
-
-      // Female is reference-only for now.
+      maleRoot.visible = false;
       femaleRoot.visible = false;
-      maleRoot.visible = true;
-      activeRoot = maleRoot;
 
-      debugEl.textContent =
-        `shared bones: ${sharedBoneNames.length}\n` +
-        `male bones: ${maleBones.size}\n` +
-        `female bones: ${femaleBones.size}\n` +
-        `display mesh: male endpoint only`;
+      await buildBridge();
 
+      applyBridgeProgress(0);
       setBodyView();
 
       loading.style.display = "none";
 
       statusEl.textContent =
-        "V15 ready. PLAY RIG MORPH deforms the real male mesh using the shared female rig.";
-
-      applyRigProgress(0);
+        "V16 ready. PLAY BRIDGE performs a real geometric surface morph experiment.";
     }
 
     setup().catch(fail);
@@ -718,8 +990,15 @@
     window.addEventListener("resize", () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+      renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+      );
+
+      renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio, 2)
+      );
     });
   </script>
 </body>
