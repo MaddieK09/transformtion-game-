@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game Prototype V10</title>
+  <title>Transformation Game V11 - Real Human Models</title>
 
   <style>
     * {
@@ -17,7 +17,7 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #111;
+      background: #101217;
       font-family: Arial, Helvetica, sans-serif;
       touch-action: none;
     }
@@ -35,20 +35,20 @@
 
     #hud {
       position: fixed;
-      top: calc(env(safe-area-inset-top) + 9px);
-      left: 9px;
-      right: 9px;
+      top: calc(env(safe-area-inset-top) + 8px);
+      left: 8px;
+      right: 8px;
       z-index: 20;
       pointer-events: none;
     }
 
     .panel {
-      max-width: 520px;
-      margin: 0 auto;
-      padding: 10px 13px;
-      border-radius: 16px;
-      background: rgba(0, 0, 0, 0.57);
+      max-width: 560px;
+      margin: auto;
+      padding: 11px 13px;
+      border-radius: 17px;
       color: white;
+      background: rgba(0,0,0,0.64);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
     }
@@ -56,28 +56,20 @@
     .title {
       font-weight: 800;
       font-size: 16px;
-      margin-bottom: 5px;
     }
 
     .status {
-      font-size: 13px;
+      margin-top: 5px;
+      font-size: 12px;
       line-height: 1.35;
       opacity: 0.94;
     }
 
-    .bar {
-      margin-top: 8px;
-      height: 9px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.18);
-      overflow: hidden;
-    }
-
-    #barFill {
-      width: 0%;
-      height: 100%;
-      background: white;
-      border-radius: 999px;
+    .debug {
+      margin-top: 4px;
+      font-size: 11px;
+      opacity: 0.72;
+      white-space: pre-line;
     }
 
     #bottomUI {
@@ -96,34 +88,46 @@
       border: 0;
       border-radius: 15px;
       padding: 12px 13px;
-      font-size: 14px;
-      font-weight: 800;
+      min-width: 102px;
       color: #111;
-      background: white;
-      min-width: 108px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+      background: rgba(255,255,255,0.94);
+      font-size: 13px;
+      font-weight: 800;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.26);
     }
 
     button:active {
       transform: scale(0.97);
     }
 
-    button.secondary {
-      background: rgba(255,255,255,0.85);
-      min-width: 94px;
+    #loading {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 25px;
+      text-align: center;
+      background: #101217;
+      color: white;
+      font-size: 17px;
+      font-weight: 800;
     }
 
-    #hint {
+    #fatal {
+      display: none;
       position: fixed;
-      bottom: calc(env(safe-area-inset-bottom) + 76px);
-      left: 8px;
-      right: 8px;
-      text-align: center;
-      color: rgba(255,255,255,0.92);
-      font-size: 12px;
-      z-index: 15;
-      pointer-events: none;
-      text-shadow: 0 2px 5px rgba(0,0,0,0.7);
+      z-index: 200;
+      top: 26%;
+      left: 15px;
+      right: 15px;
+      padding: 18px;
+      border-radius: 15px;
+      background: #761c1c;
+      color: white;
+      font: 700 13px/1.45 Arial, sans-serif;
+      white-space: pre-wrap;
     }
   </style>
 </head>
@@ -131,44 +135,75 @@
 <body>
   <div id="game"></div>
 
+  <div id="loading">
+    Loading the real male + female GLB modelsâ¦
+  </div>
+
+  <div id="fatal"></div>
+
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game - V10 Human Anatomy + Hair</div>
-      <div id="status" class="status">
-        Starter form. V10 has a more anatomical body, shaped limbs, hands, feet, head and hair.
-      </div>
-      <div class="bar">
-        <div id="barFill"></div>
-      </div>
+      <div class="title">Transformation Game â V11 Real Human Models</div>
+      <div id="status" class="status">Loading real GLB humansâ¦</div>
+      <div id="debug" class="debug"></div>
     </div>
   </div>
 
-  <div id="hint">
-    V10: anatomical morph-target humanoid with transforming hair
+  <div id="bottomUI">
+    <button id="bodyViewBtn">BODY VIEW</button>
+    <button id="lookBtn">LOOK DOWN</button>
+    <button id="maleBtn">MALE</button>
+    <button id="femaleBtn">FEMALE</button>
   </div>
 
-  <div id="bottomUI">
-    <button id="lookBtn" class="secondary">LOOK DOWN</button>
-    <button id="viewBtn" class="secondary">BODY VIEW</button>
-    <button id="transformBtn">TRANSFORM</button>
-    <button id="resetBtn" class="secondary">RESET</button>
-  </div>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+    }
+  }
+  </script>
 
   <script type="module">
-    import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
+    import * as THREE from "three";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+    const loading = document.getElementById("loading");
+    const fatal = document.getElementById("fatal");
+    const statusEl = document.getElementById("status");
+    const debugEl = document.getElementById("debug");
+
+    function fail(error) {
+      console.error(error);
+      loading.style.display = "none";
+      fatal.style.display = "block";
+      fatal.textContent =
+        "V11 ERROR\n\n" +
+        (error?.stack || error?.message || String(error)) +
+        "\n\nSend me a screenshot of this red box.";
+    }
+
+    window.addEventListener("error", e => {
+      if (e.error) fail(e.error);
+    });
+
+    window.addEventListener("unhandledrejection", e => {
+      fail(e.reason);
+    });
 
     // =========================================================
-    // ENGINE
+    // THREE.JS SETUP
     // =========================================================
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x91d5f4);
+    scene.background = new THREE.Color(0x94d7f2);
 
     const camera = new THREE.PerspectiveCamera(
-      64,
+      62,
       window.innerWidth / window.innerHeight,
-      0.02,
-      150
+      0.015,
+      100
     );
 
     const renderer = new THREE.WebGLRenderer({
@@ -176,884 +211,348 @@
       powerPreference: "high-performance"
     });
 
-    renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     document.getElementById("game").appendChild(renderer.domElement);
 
-    // =========================================================
-    // ROOM
-    // =========================================================
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x64707a, 2.5);
+    scene.add(hemi);
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x53616e, 2.15));
+    const key = new THREE.DirectionalLight(0xffffff, 3.0);
+    key.position.set(4, 8, 5);
+    scene.add(key);
 
-    const sun = new THREE.DirectionalLight(0xffffff, 2.6);
-    sun.position.set(4, 9, 4);
-    scene.add(sun);
+    const fill = new THREE.DirectionalLight(0xd8e7ff, 1.3);
+    fill.position.set(-4, 3, 2);
+    scene.add(fill);
 
     const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(60, 60),
+      new THREE.PlaneGeometry(30, 30),
       new THREE.MeshStandardMaterial({
-        color: 0x92979c,
-        roughness: 0.95
+        color: 0x9ea2a5,
+        roughness: 0.94
       })
     );
     floor.rotation.x = -Math.PI / 2;
     scene.add(floor);
 
-    function worldBox(x, y, z, sx, sy, sz, color) {
+    // Simple room reference objects.
+    function box(x, y, z, sx, sy, sz, color) {
       const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(1, 1, 1),
-        new THREE.MeshStandardMaterial({ color, roughness: 0.84 })
+        new THREE.BoxGeometry(1,1,1),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.88 })
       );
-      mesh.position.set(x, y, z);
-      mesh.scale.set(sx, sy, sz);
+      mesh.position.set(x,y,z);
+      mesh.scale.set(sx,sy,sz);
       scene.add(mesh);
-      return mesh;
     }
 
-    worldBox(0, 1.5, -6.3, 10, 3, 0.22, 0xdce0e3);
-    worldBox(-5.1, 1.5, -1.0, 0.22, 3, 10, 0xdce0e3);
-    worldBox(5.1, 1.5, -1.0, 0.22, 3, 10, 0xdce0e3);
-    worldBox(-2.6, 0.45, -3.5, 1.45, 0.9, 0.75, 0x9b7755);
-    worldBox(2.6, 0.88, -3.9, 0.72, 1.76, 0.72, 0x6d7c8f);
+    box(0, 1.5, -6, 10, 3, 0.2, 0xd8dde1);
+    box(-5, 1.5, -1, 0.2, 3, 10, 0xd8dde1);
+    box(5, 1.5, -1, 0.2, 3, 10, 0xd8dde1);
 
     // =========================================================
-    // PLAYER
+    // MODEL LOADING
     // =========================================================
 
-    const player = new THREE.Group();
-    player.position.set(0, 0, 2.6);
-    scene.add(player);
+    const loader = new GLTFLoader();
 
-    const yawRoot = new THREE.Group();
-    player.add(yawRoot);
-
-    const bodyRoot = new THREE.Group();
-    yawRoot.add(bodyRoot);
-
-    // =========================================================
-    // MATERIALS
-    // =========================================================
-
-    const skinMaterial = new THREE.MeshStandardMaterial({
-      color: 0xd6a079,
-      roughness: 0.68
-    });
-
-    const topMaterial = new THREE.MeshStandardMaterial({
-      color: 0x41618f,
-      roughness: 0.82
-    });
-
-    const lowerMaterial = new THREE.MeshStandardMaterial({
-      color: 0x222b37,
-      roughness: 0.88
-    });
-
-    const shoeMaterial = new THREE.MeshStandardMaterial({
-      color: 0x171717,
-      roughness: 0.94
-    });
-
-    const hairMaterial = new THREE.MeshStandardMaterial({
-      color: 0x3a291f,
-      roughness: 0.86
-    });
-
-    // =========================================================
-    // PROFILES
-    // =========================================================
-
-    const starter = {
-      height: 1.80,
-      eyeHeight: 1.69,
-
-      torsoY: 0.82,
-      torsoH: 0.67,
-
-      neckW: 0.108,
-      neckD: 0.100,
-
-      shoulderW: 0.46,
-      clavicleW: 0.43,
-      upperChestW: 0.405,
-      chestW: 0.39,
-      ribW: 0.35,
-      waistW: 0.30,
-      highHipW: 0.34,
-      hipW: 0.37,
-      lowHipW: 0.31,
-
-      shoulderD: 0.19,
-      chestD: 0.215,
-      ribD: 0.195,
-      waistD: 0.175,
-      highHipD: 0.215,
-      hipD: 0.245,
-      lowHipD: 0.215,
-
-      chestFront: 0.015,
-      abdomenFront: 0.010,
-      gluteBack: 0.035,
-
-      upperArmL: 0.315,
-      forearmL: 0.285,
-
-      upperArmShoulder: 0.062,
-      upperArmMid: 0.055,
-      upperArmElbow: 0.047,
-
-      forearmElbow: 0.048,
-      forearmMid: 0.043,
-      forearmWrist: 0.034,
-
-      thighL: 0.425,
-      shinL: 0.395,
-
-      thighHip: 0.104,
-      thighMid: 0.091,
-      thighKnee: 0.073,
-
-      shinKnee: 0.072,
-      shinCalf: 0.079,
-      shinAnkle: 0.047,
-
-      handW: 0.086,
-      handH: 0.145,
-      handD: 0.044,
-
-      footW: 0.132,
-      footH: 0.073,
-      footL: 0.272,
-
-      headW: 0.155,
-      headH: 0.205,
-      headD: 0.165,
-
-      hairLength: 0.070,
-      hairBack: 0.035,
-      hairSide: 0.020,
-
-      skin: new THREE.Color(0xd6a079),
-      topColor: new THREE.Color(0x41618f),
-      lowerColor: new THREE.Color(0x222b37),
-      hairColor: new THREE.Color(0x3a291f)
-    };
-
-    const target = {
-      height: 1.55,
-      eyeHeight: 1.45,
-
-      torsoY: 0.77,
-      torsoH: 0.61,
-
-      neckW: 0.096,
-      neckD: 0.090,
-
-      shoulderW: 0.385,
-      clavicleW: 0.37,
-      upperChestW: 0.355,
-      chestW: 0.365,
-      ribW: 0.305,
-      waistW: 0.252,
-      highHipW: 0.415,
-      hipW: 0.465,
-      lowHipW: 0.395,
-
-      shoulderD: 0.175,
-      chestD: 0.240,
-      ribD: 0.185,
-      waistD: 0.165,
-      highHipD: 0.275,
-      hipD: 0.315,
-      lowHipD: 0.285,
-
-      chestFront: 0.062,
-      abdomenFront: 0.018,
-      gluteBack: 0.080,
-
-      upperArmL: 0.285,
-      forearmL: 0.260,
-
-      upperArmShoulder: 0.052,
-      upperArmMid: 0.047,
-      upperArmElbow: 0.040,
-
-      forearmElbow: 0.041,
-      forearmMid: 0.037,
-      forearmWrist: 0.030,
-
-      thighL: 0.385,
-      shinL: 0.360,
-
-      thighHip: 0.128,
-      thighMid: 0.111,
-      thighKnee: 0.085,
-
-      shinKnee: 0.078,
-      shinCalf: 0.083,
-      shinAnkle: 0.045,
-
-      handW: 0.078,
-      handH: 0.126,
-      handD: 0.039,
-
-      footW: 0.122,
-      footH: 0.068,
-      footL: 0.246,
-
-      headW: 0.145,
-      headH: 0.194,
-      headD: 0.154,
-
-      hairLength: 0.430,
-      hairBack: 0.115,
-      hairSide: 0.070,
-
-      skin: new THREE.Color(0xb87555),
-      topColor: new THREE.Color(0x914188),
-      lowerColor: new THREE.Color(0x2a2230),
-      hairColor: new THREE.Color(0x33201d)
-    };
-
-    function mix(a, b, t) {
-      return a + (b - a) * t;
-    }
-
-    // =========================================================
-    // GENERIC MORPH HELPERS
-    // =========================================================
-
-    function setMorph(mesh, t) {
-      if (mesh.morphTargetInfluences) {
-        mesh.morphTargetInfluences[0] = t;
-      }
-    }
-
-    function morphSphere(startDims, targetDims, material, widthSeg = 30, heightSeg = 22) {
-      const g = new THREE.SphereGeometry(0.5, widthSeg, heightSeg);
-      const p = g.attributes.position;
-      const target = new Float32Array(p.count * 3);
-
-      for (let i = 0; i < p.count; i++) {
-        const x = p.getX(i);
-        const y = p.getY(i);
-        const z = p.getZ(i);
-
-        target[i * 3 + 0] = x * targetDims.x;
-        target[i * 3 + 1] = y * targetDims.y;
-        target[i * 3 + 2] = z * targetDims.z;
-
-        p.setXYZ(
-          i,
-          x * startDims.x,
-          y * startDims.y,
-          z * startDims.z
+    function loadGLB(url) {
+      return new Promise((resolve, reject) => {
+        loader.load(
+          url,
+          gltf => resolve(gltf),
+          undefined,
+          reject
         );
-      }
-
-      g.morphAttributes.position = [
-        new THREE.Float32BufferAttribute(target, 3)
-      ];
-
-      const m = new THREE.Mesh(g, material);
-      m.morphTargetInfluences[0] = 0;
-      return m;
+      });
     }
 
-    function morphRadialSegment(start, end, material, radial = 24, vertical = 10) {
-      const verts = [];
-      const idx = [];
+    function getBounds(object) {
+      object.updateMatrixWorld(true);
 
-      function sampleRadius(profile, u) {
-        if (u <= 0.5) {
-          return mix(profile.r0, profile.r1, u * 2);
-        }
-        return mix(profile.r1, profile.r2, (u - 0.5) * 2);
+      const box = new THREE.Box3().setFromObject(object);
+      const size = new THREE.Vector3();
+      const center = new THREE.Vector3();
+
+      box.getSize(size);
+      box.getCenter(center);
+
+      return { box, size, center };
+    }
+
+    function normalizeModel(root, targetHeight = 1.75) {
+      root.updateMatrixWorld(true);
+
+      let data = getBounds(root);
+
+      if (!isFinite(data.size.y) || data.size.y <= 0.001) {
+        throw new Error("Model bounding box height is invalid.");
       }
 
-      for (let j = 0; j <= vertical; j++) {
-        const u = j / vertical;
-        const y = (u - 0.5);
+      const scale = targetHeight / data.size.y;
+      root.scale.multiplyScalar(scale);
 
-        for (let i = 0; i < radial; i++) {
-          const a = i / radial * Math.PI * 2;
-          verts.push(Math.cos(a), y, Math.sin(a));
+      root.updateMatrixWorld(true);
+      data = getBounds(root);
+
+      // Center left/right and move feet to y=0.
+      root.position.x -= data.center.x;
+      root.position.z -= data.center.z;
+      root.position.y -= data.box.min.y;
+
+      root.updateMatrixWorld(true);
+
+      return getBounds(root);
+    }
+
+    function makeMaterialsOpaque(root) {
+      root.traverse(obj => {
+        if (!obj.isMesh) return;
+
+        obj.frustumCulled = false;
+
+        const materials = Array.isArray(obj.material)
+          ? obj.material
+          : [obj.material];
+
+        for (const mat of materials) {
+          if (!mat) continue;
+          mat.transparent = false;
+          mat.opacity = 1;
+          mat.depthWrite = true;
+          mat.side = THREE.FrontSide;
+          mat.needsUpdate = true;
         }
-      }
+      });
+    }
 
-      for (let j = 0; j < vertical; j++) {
-        for (let i = 0; i < radial; i++) {
-          const n = (i + 1) % radial;
+    function collectStats(root) {
+      const rows = [];
 
-          const a = j * radial + i;
-          const b = j * radial + n;
-          const c = (j + 1) * radial + i;
-          const d = (j + 1) * radial + n;
+      root.traverse(obj => {
+        if (!obj.isMesh && !obj.isSkinnedMesh) return;
 
-          idx.push(a, c, b, b, c, d);
-        }
-      }
+        const geometry = obj.geometry;
+        const pos = geometry?.attributes?.position;
+        const morphCount =
+          geometry?.morphAttributes?.position?.length || 0;
 
-      const g = new THREE.BufferGeometry();
-      const base = new Float32Array(verts.length);
-      const tar = new Float32Array(verts.length);
+        rows.push({
+          name: obj.name || "(unnamed)",
+          skinned: !!obj.isSkinnedMesh,
+          vertices: pos?.count || 0,
+          morphTargets: morphCount
+        });
+      });
 
-      for (let j = 0; j <= vertical; j++) {
-        const u = j / vertical;
-        const sr = sampleRadius(start, u);
-        const tr = sampleRadius(end, u);
+      return rows;
+    }
 
-        for (let i = 0; i < radial; i++) {
-          const k = (j * radial + i) * 3;
-          const x = verts[k];
-          const y = verts[k + 1];
-          const z = verts[k + 2];
+    function topologySignature(stats) {
+      return stats
+        .map(x => `${x.vertices}:${x.morphTargets}`)
+        .sort()
+        .join("|");
+    }
 
-          base[k] = x * sr;
-          base[k + 1] = y * start.length;
-          base[k + 2] = z * sr;
+    let maleRoot;
+    let femaleRoot;
+    let maleBounds;
+    let femaleBounds;
 
-          tar[k] = x * tr;
-          tar[k + 1] = y * end.length;
-          tar[k + 2] = z * tr;
-        }
-      }
+    let activeRoot = null;
+    let currentSex = "male";
 
-      g.setAttribute("position", new THREE.BufferAttribute(base, 3));
-      g.setIndex(idx);
-      g.computeVertexNormals();
+    let maleStats = [];
+    let femaleStats = [];
+    let likelyCompatible = false;
 
-      g.morphAttributes.position = [
-        new THREE.BufferAttribute(tar, 3)
-      ];
+    async function setupModels() {
+      statusEl.textContent = "Loading adult-male-lod.glbâ¦";
+      const maleGLTF = await loadGLB("./adult-male-lod.glb");
 
-      const m = new THREE.Mesh(g, material);
-      m.morphTargetInfluences[0] = 0;
-      return m;
+      statusEl.textContent = "Loading adult-female-lod.glbâ¦";
+      const femaleGLTF = await loadGLB("./adult-female-lod.glb");
+
+      maleRoot = maleGLTF.scene;
+      femaleRoot = femaleGLTF.scene;
+
+      maleRoot.name = "MaleRealHuman";
+      femaleRoot.name = "FemaleRealHuman";
+
+      scene.add(maleRoot);
+      scene.add(femaleRoot);
+
+      makeMaterialsOpaque(maleRoot);
+      makeMaterialsOpaque(femaleRoot);
+
+      maleBounds = normalizeModel(maleRoot, 1.80);
+      femaleBounds = normalizeModel(femaleRoot, 1.65);
+
+      maleStats = collectStats(maleRoot);
+      femaleStats = collectStats(femaleRoot);
+
+      likelyCompatible =
+        topologySignature(maleStats) === topologySignature(femaleStats);
+
+      femaleRoot.visible = false;
+      maleRoot.visible = true;
+      activeRoot = maleRoot;
+
+      setBodyView();
+
+      loading.style.display = "none";
+
+      statusEl.textContent =
+        "REAL GLB HUMANS LOADED. Start by checking BODY VIEW.";
+
+      const maleVerts = maleStats.reduce((n, x) => n + x.vertices, 0);
+      const femaleVerts = femaleStats.reduce((n, x) => n + x.vertices, 0);
+      const maleMorphs = maleStats.reduce((n, x) => n + x.morphTargets, 0);
+      const femaleMorphs = femaleStats.reduce((n, x) => n + x.morphTargets, 0);
+
+      debugEl.textContent =
+        `male meshes ${maleStats.length} â¢ vertices ${maleVerts} â¢ morph targets ${maleMorphs}\n` +
+        `female meshes ${femaleStats.length} â¢ vertices ${femaleVerts} â¢ morph targets ${femaleMorphs}\n` +
+        `same raw topology signature: ${likelyCompatible ? "YES" : "NO"}`;
+
+      console.log("MALE MODEL STATS", maleStats);
+      console.log("FEMALE MODEL STATS", femaleStats);
+      console.log("SAME TOPOLOGY SIGNATURE?", likelyCompatible);
     }
 
     // =========================================================
-    // TORSO MESH
+    // MODEL SWITCHING
     // =========================================================
 
-    function torsoGeometry(profile) {
-      const rings = [
-        { y: 0.00, w: profile.lowHipW, d: profile.lowHipD },
-        { y: 0.07, w: profile.lowHipW * 1.05, d: profile.lowHipD * 1.02 },
-        { y: 0.15, w: profile.hipW * 0.96, d: profile.hipD * 0.96 },
-        { y: 0.23, w: profile.hipW, d: profile.hipD },
-        { y: 0.33, w: profile.highHipW, d: profile.highHipD },
-        { y: 0.43, w: profile.waistW * 1.05, d: profile.waistD * 1.05 },
-        { y: 0.51, w: profile.waistW, d: profile.waistD },
-        { y: 0.61, w: profile.ribW, d: profile.ribD },
-        { y: 0.70, w: profile.chestW * 0.94, d: profile.chestD * 0.96 },
-        { y: 0.78, w: profile.chestW, d: profile.chestD },
-        { y: 0.86, w: profile.upperChestW, d: profile.shoulderD },
-        { y: 0.92, w: profile.clavicleW, d: profile.shoulderD * 0.95 },
-        { y: 0.96, w: profile.shoulderW * 0.94, d: profile.shoulderD * 0.90 },
-        { y: 1.00, w: profile.neckW * 1.18, d: profile.neckD * 1.10 }
-      ];
+    function showMale() {
+      currentSex = "male";
+      maleRoot.visible = true;
+      femaleRoot.visible = false;
+      activeRoot = maleRoot;
 
-      const radial = 40;
-      const vertices = [];
-      const indices = [];
-      const uvs = [];
+      statusEl.textContent = "Real adult male model.";
 
-      for (let r = 0; r < rings.length; r++) {
-        const ring = rings[r];
-
-        for (let i = 0; i < radial; i++) {
-          const a = (i / radial) * Math.PI * 2;
-          const c = Math.cos(a);
-          const s = Math.sin(a);
-
-          let x = c * ring.w * 0.5;
-          let z = s * ring.d * 0.5;
-
-          const front = Math.max(0, -s);
-          const back = Math.max(0, s);
-
-          if (ring.y >= 0.68 && ring.y <= 0.86) {
-            z -= profile.chestFront * front;
-          }
-
-          if (ring.y >= 0.37 && ring.y <= 0.62) {
-            z -= profile.abdomenFront * front;
-          }
-
-          if (ring.y <= 0.33) {
-            z += profile.gluteBack * back;
-          }
-
-          // Flatter clavicle area.
-          if (ring.y >= 0.90) {
-            z *= 0.92;
-          }
-
-          vertices.push(
-            x,
-            ring.y * profile.torsoH,
-            z
-          );
-
-          uvs.push(i / radial, ring.y);
-        }
-      }
-
-      for (let r = 0; r < rings.length - 1; r++) {
-        for (let i = 0; i < radial; i++) {
-          const n = (i + 1) % radial;
-
-          const a = r * radial + i;
-          const b = r * radial + n;
-          const c = (r + 1) * radial + i;
-          const d = (r + 1) * radial + n;
-
-          indices.push(a, c, b, b, c, d);
-        }
-      }
-
-      const g = new THREE.BufferGeometry();
-      g.setAttribute(
-        "position",
-        new THREE.Float32BufferAttribute(vertices, 3)
-      );
-      g.setAttribute(
-        "uv",
-        new THREE.Float32BufferAttribute(uvs, 2)
-      );
-      g.setIndex(indices);
-      g.computeVertexNormals();
-
-      return g;
+      if (!bodyView) setFirstPerson();
     }
 
-    function morphTorso(start, end, material) {
-      const g0 = torsoGeometry(start);
-      const g1 = torsoGeometry(end);
+    function showFemale() {
+      currentSex = "female";
+      maleRoot.visible = false;
+      femaleRoot.visible = true;
+      activeRoot = femaleRoot;
 
-      g0.morphAttributes.position = [
-        new THREE.Float32BufferAttribute(
-          g1.attributes.position.array.slice(),
-          3
-        )
-      ];
+      statusEl.textContent = "Real adult female model.";
 
-      const m = new THREE.Mesh(g0, material);
-      m.morphTargetInfluences[0] = 0;
-
-      g1.dispose();
-      return m;
+      if (!bodyView) setFirstPerson();
     }
 
-    // =========================================================
-    // HAIR
-    // =========================================================
-
-    function hairGeometry(profile) {
-      const radial = 40;
-      const rows = 10;
-      const vertices = [];
-      const indices = [];
-
-      // Hair shell around top/back/sides of head.
-      for (let j = 0; j <= rows; j++) {
-        const v = j / rows;
-
-        // v=0 crown, v=1 lower hair edge
-        const y = 0.10 - v * profile.hairLength;
-        const widen = 1 + v * profile.hairSide;
-
-        for (let i = 0; i < radial; i++) {
-          const a = i / radial * Math.PI * 2;
-          const c = Math.cos(a);
-          const s = Math.sin(a);
-
-          // Front is -Z. Hair shell is fuller behind/sides.
-          const back = Math.max(0, s);
-          const side = Math.abs(c);
-
-          const rx = profile.headW * 0.54 * widen;
-          const rz =
-            profile.headD * 0.54 +
-            profile.hairBack * back +
-            profile.hairSide * side * v;
-
-          let x = c * rx;
-          let z = s * rz;
-
-          // Recede front hairline as rows descend.
-          if (s < 0) {
-            z *= 0.92 - v * 0.20;
-          }
-
-          vertices.push(x, y, z);
-        }
-      }
-
-      for (let j = 0; j < rows; j++) {
-        for (let i = 0; i < radial; i++) {
-          const n = (i + 1) % radial;
-
-          const a = j * radial + i;
-          const b = j * radial + n;
-          const c = (j + 1) * radial + i;
-          const d = (j + 1) * radial + n;
-
-          indices.push(a, c, b, b, c, d);
-        }
-      }
-
-      const g = new THREE.BufferGeometry();
-      g.setAttribute(
-        "position",
-        new THREE.Float32BufferAttribute(vertices, 3)
-      );
-      g.setIndex(indices);
-      g.computeVertexNormals();
-      return g;
-    }
-
-    function morphHair(start, end) {
-      const g0 = hairGeometry(start);
-      const g1 = hairGeometry(end);
-
-      g0.morphAttributes.position = [
-        new THREE.Float32BufferAttribute(
-          g1.attributes.position.array.slice(),
-          3
-        )
-      ];
-
-      const m = new THREE.Mesh(g0, hairMaterial);
-      m.morphTargetInfluences[0] = 0;
-
-      g1.dispose();
-      return m;
-    }
-
-    // =========================================================
-    // BUILD BODY
-    // =========================================================
-
-    const torso = morphTorso(starter, target, topMaterial);
-    bodyRoot.add(torso);
-
-    const neck = morphRadialSegment(
-      {
-        r0: starter.neckW * 0.48,
-        r1: starter.neckW * 0.51,
-        r2: starter.neckW * 0.58,
-        length: 0.115
-      },
-      {
-        r0: target.neckW * 0.48,
-        r1: target.neckW * 0.51,
-        r2: target.neckW * 0.58,
-        length: 0.105
-      },
-      skinMaterial
-    );
-    bodyRoot.add(neck);
-
-    const head = morphSphere(
-      new THREE.Vector3(starter.headW, starter.headH, starter.headD),
-      new THREE.Vector3(target.headW, target.headH, target.headD),
-      skinMaterial
-    );
-    bodyRoot.add(head);
-
-    const hair = morphHair(starter, target);
-    bodyRoot.add(hair);
-
-    // Simple ears help the head read more like a human head.
-    const leftEar = morphSphere(
-      new THREE.Vector3(0.026, 0.055, 0.018),
-      new THREE.Vector3(0.024, 0.052, 0.017),
-      skinMaterial,
-      18, 14
-    );
-
-    const rightEar = leftEar.clone();
-    rightEar.geometry = leftEar.geometry.clone();
-
-    bodyRoot.add(leftEar, rightEar);
-
-    function makeArm(sign) {
-      const upper = morphRadialSegment(
-        {
-          r0: starter.upperArmElbow,
-          r1: starter.upperArmMid,
-          r2: starter.upperArmShoulder,
-          length: starter.upperArmL
-        },
-        {
-          r0: target.upperArmElbow,
-          r1: target.upperArmMid,
-          r2: target.upperArmShoulder,
-          length: target.upperArmL
-        },
-        skinMaterial
-      );
-
-      const forearm = morphRadialSegment(
-        {
-          r0: starter.forearmWrist,
-          r1: starter.forearmMid,
-          r2: starter.forearmElbow,
-          length: starter.forearmL
-        },
-        {
-          r0: target.forearmWrist,
-          r1: target.forearmMid,
-          r2: target.forearmElbow,
-          length: target.forearmL
-        },
-        skinMaterial
-      );
-
-      const hand = morphSphere(
-        new THREE.Vector3(starter.handW, starter.handH, starter.handD),
-        new THREE.Vector3(target.handW, target.handH, target.handD),
-        skinMaterial,
-        20, 16
-      );
-
-      bodyRoot.add(upper, forearm, hand);
-
-      return { sign, upper, forearm, hand };
-    }
-
-    const leftArm = makeArm(-1);
-    const rightArm = makeArm(1);
-
-    function makeLeg(sign) {
-      const thigh = morphRadialSegment(
-        {
-          r0: starter.thighKnee,
-          r1: starter.thighMid,
-          r2: starter.thighHip,
-          length: starter.thighL
-        },
-        {
-          r0: target.thighKnee,
-          r1: target.thighMid,
-          r2: target.thighHip,
-          length: target.thighL
-        },
-        lowerMaterial,
-        28, 12
-      );
-
-      const shin = morphRadialSegment(
-        {
-          r0: starter.shinAnkle,
-          r1: starter.shinCalf,
-          r2: starter.shinKnee,
-          length: starter.shinL
-        },
-        {
-          r0: target.shinAnkle,
-          r1: target.shinCalf,
-          r2: target.shinKnee,
-          length: target.shinL
-        },
-        lowerMaterial,
-        28, 12
-      );
-
-      const foot = morphSphere(
-        new THREE.Vector3(starter.footW, starter.footH, starter.footL),
-        new THREE.Vector3(target.footW, target.footH, target.footL),
-        shoeMaterial,
-        24, 18
-      );
-
-      bodyRoot.add(thigh, shin, foot);
-
-      return { sign, thigh, shin, foot };
-    }
-
-    const leftLeg = makeLeg(-1);
-    const rightLeg = makeLeg(1);
-
-    // =========================================================
-    // APPLY BODY STATE
-    // =========================================================
-
-    function applyBody(t) {
-      const p = THREE.MathUtils.clamp(t, 0, 1);
-
-      setMorph(torso, p);
-      setMorph(neck, p);
-      setMorph(head, p);
-      setMorph(hair, p);
-      setMorph(leftEar, p);
-      setMorph(rightEar, p);
-
-      for (const arm of [leftArm, rightArm]) {
-        setMorph(arm.upper, p);
-        setMorph(arm.forearm, p);
-        setMorph(arm.hand, p);
-      }
-
-      for (const leg of [leftLeg, rightLeg]) {
-        setMorph(leg.thigh, p);
-        setMorph(leg.shin, p);
-        setMorph(leg.foot, p);
-      }
-
-      skinMaterial.color.copy(starter.skin).lerp(target.skin, p);
-      topMaterial.color.copy(starter.topColor).lerp(target.topColor, p);
-      lowerMaterial.color.copy(starter.lowerColor).lerp(target.lowerColor, p);
-      hairMaterial.color.copy(starter.hairColor).lerp(target.hairColor, p);
-
-      const torsoY = mix(starter.torsoY, target.torsoY, p);
-      const torsoH = mix(starter.torsoH, target.torsoH, p);
-
-      torso.position.set(0, torsoY, 0.035);
-
-      const torsoTop = torsoY + torsoH;
-
-      neck.position.set(0, torsoTop + 0.050, -0.002);
-
-      head.position.set(
-        0,
-        torsoTop + 0.164,
-        -0.005
-      );
-
-      hair.position.copy(head.position);
-      hair.position.y += 0.035;
-      hair.position.z += 0.010;
-
-      const headW = mix(starter.headW, target.headW, p);
-
-      leftEar.position.set(
-        -headW * 0.53,
-        head.position.y,
-        head.position.z
-      );
-
-      rightEar.position.set(
-        headW * 0.53,
-        head.position.y,
-        head.position.z
-      );
-
-      // Arms
-      const shoulderW = mix(starter.shoulderW, target.shoulderW, p);
-      const upperL = mix(starter.upperArmL, target.upperArmL, p);
-      const foreL = mix(starter.forearmL, target.forearmL, p);
-      const handH = mix(starter.handH, target.handH, p);
-
-      for (const arm of [leftArm, rightArm]) {
-        const x = arm.sign * shoulderW * 0.535;
-
-        arm.upper.position.set(
-          x,
-          torsoTop - 0.060 - upperL * 0.50,
-          0.018
-        );
-
-        // Slight natural elbow bend/forwardness.
-        arm.upper.rotation.z = arm.sign * THREE.MathUtils.degToRad(2.5);
-        arm.upper.rotation.x = THREE.MathUtils.degToRad(2.0);
-
-        arm.forearm.position.set(
-          x + arm.sign * 0.012,
-          torsoTop - 0.060 - upperL - foreL * 0.50,
-          -0.006
-        );
-
-        arm.forearm.rotation.z = arm.sign * THREE.MathUtils.degToRad(-2.0);
-        arm.forearm.rotation.x = THREE.MathUtils.degToRad(-3.0);
-
-        arm.hand.position.set(
-          x + arm.sign * 0.016,
-          torsoTop - 0.060 - upperL - foreL - handH * 0.46,
-          -0.014
-        );
-
-        arm.hand.rotation.z = arm.sign * THREE.MathUtils.degToRad(3.0);
-      }
-
-      // Legs
-      const hipW = mix(starter.hipW, target.hipW, p);
-      const thighL = mix(starter.thighL, target.thighL, p);
-      const shinL = mix(starter.shinL, target.shinL, p);
-      const footL = mix(starter.footL, target.footL, p);
-
-      for (const leg of [leftLeg, rightLeg]) {
-        const x = leg.sign * hipW * 0.205;
-
-        leg.thigh.position.set(
-          x,
-          torsoY - thighL * 0.50 + 0.015,
-          0.025
-        );
-
-        leg.shin.position.set(
-          x,
-          torsoY - thighL - shinL * 0.50 + 0.014,
-          0.010
-        );
-
-        leg.foot.position.set(
-          x,
-          0.055,
-          -footL * 0.30
-        );
-
-        // Human feet point forward.
-        leg.foot.scale.z = 1.10;
-      }
-    }
+    document.getElementById("maleBtn").addEventListener("click", showMale);
+    document.getElementById("femaleBtn").addEventListener("click", showFemale);
 
     // =========================================================
     // CAMERA
     // =========================================================
 
-    const cameraPivot = new THREE.Group();
-    yawRoot.add(cameraPivot);
-    cameraPivot.add(camera);
-
+    let bodyView = true;
     let yaw = 0;
-    let pitch = -0.10;
-    let bodyView = false;
+    let pitch = THREE.MathUtils.degToRad(-6);
 
-    const sensitivity = 0.0040;
-    const minPitch = THREE.MathUtils.degToRad(-89);
-    const maxPitch = THREE.MathUtils.degToRad(70);
+    const bodyTarget = new THREE.Vector3();
+
+    function activeBounds() {
+      if (!activeRoot) return null;
+      return getBounds(activeRoot);
+    }
+
+    function setBodyView() {
+      bodyView = true;
+
+      if (!activeRoot) return;
+
+      const b = activeBounds();
+
+      camera.position.set(
+        b.center.x + 1.55,
+        b.box.min.y + b.size.y * 0.62,
+        b.center.z + 3.0
+      );
+
+      bodyTarget.set(
+        b.center.x,
+        b.box.min.y + b.size.y * 0.49,
+        b.center.z
+      );
+
+      camera.lookAt(bodyTarget);
+
+      statusEl.textContent =
+        currentSex === "male"
+          ? "BODY VIEW â real adult male model."
+          : "BODY VIEW â real adult female model.";
+    }
+
+    function setFirstPerson() {
+      bodyView = false;
+
+      if (!activeRoot) return;
+
+      const b = activeBounds();
+
+      // Estimate eye position from model bounds.
+      const eyeY = b.box.min.y + b.size.y * 0.925;
+
+      camera.position.set(
+        b.center.x,
+        eyeY,
+        b.center.z - b.size.z * 0.16
+      );
+
+      pitch = THREE.MathUtils.degToRad(-10);
+
+      statusEl.textContent =
+        "FIRST PERSON â drag to look, or press LOOK DOWN.";
+    }
+
+    function setLookDown() {
+      if (!activeRoot) return;
+
+      if (bodyView) {
+        setFirstPerson();
+      }
+
+      pitch = THREE.MathUtils.degToRad(-66);
+
+      statusEl.textContent =
+        "LOOK DOWN â inspecting the real model from estimated eye height.";
+    }
+
+    document.getElementById("bodyViewBtn")
+      .addEventListener("click", setBodyView);
+
+    document.getElementById("lookBtn")
+      .addEventListener("click", setLookDown);
+
+    // =========================================================
+    // DRAG LOOK
+    // =========================================================
 
     let dragging = false;
     let lastX = 0;
     let lastY = 0;
 
-    function updateFirstPersonCamera(t) {
-      const eyeHeight = mix(starter.eyeHeight, target.eyeHeight, t);
+    const sensitivity = 0.004;
 
-      cameraPivot.position.set(
-        0,
-        eyeHeight,
-        -0.155
-      );
-    }
-
-    function setPitch(value) {
-      pitch = THREE.MathUtils.clamp(value, minPitch, maxPitch);
-    }
-
-    function beginLook(x, y) {
+    function startDrag(x, y) {
       dragging = true;
       lastX = x;
       lastY = y;
     }
 
-    function moveLook(x, y) {
+    function drag(x, y) {
       if (!dragging || bodyView) return;
 
       const dx = x - lastX;
@@ -1063,18 +562,24 @@
       lastY = y;
 
       yaw -= dx * sensitivity;
-      setPitch(pitch - dy * sensitivity);
+      pitch -= dy * sensitivity;
+
+      pitch = THREE.MathUtils.clamp(
+        pitch,
+        THREE.MathUtils.degToRad(-88),
+        THREE.MathUtils.degToRad(70)
+      );
     }
 
-    function endLook() {
+    function endDrag() {
       dragging = false;
     }
 
     renderer.domElement.addEventListener(
       "touchstart",
-      (e) => {
+      e => {
         if (e.touches.length === 1) {
-          beginLook(e.touches[0].clientX, e.touches[0].clientY);
+          startDrag(e.touches[0].clientX, e.touches[0].clientY);
         }
       },
       { passive: false }
@@ -1082,210 +587,79 @@
 
     renderer.domElement.addEventListener(
       "touchmove",
-      (e) => {
+      e => {
         if (e.touches.length === 1) {
           e.preventDefault();
-          moveLook(e.touches[0].clientX, e.touches[0].clientY);
+          drag(e.touches[0].clientX, e.touches[0].clientY);
         }
       },
       { passive: false }
     );
 
-    renderer.domElement.addEventListener("touchend", endLook);
-    renderer.domElement.addEventListener("touchcancel", endLook);
-
-    renderer.domElement.addEventListener(
-      "mousedown",
-      (e) => beginLook(e.clientX, e.clientY)
-    );
-
-    window.addEventListener(
-      "mousemove",
-      (e) => moveLook(e.clientX, e.clientY)
-    );
-
-    window.addEventListener("mouseup", endLook);
-
-    document.getElementById("lookBtn").addEventListener(
-      "click",
-      () => {
-        bodyView = false;
-        document.getElementById("viewBtn").textContent = "BODY VIEW";
-        setPitch(THREE.MathUtils.degToRad(-66));
-      }
-    );
-
-    document.getElementById("viewBtn").addEventListener(
-      "click",
-      () => {
-        bodyView = !bodyView;
-
-        document.getElementById("viewBtn").textContent =
-          bodyView ? "FIRST PERSON" : "BODY VIEW";
-
-        status.textContent =
-          bodyView
-            ? "Body view active. Inspect the more anatomical human mesh and hair."
-            : "First person restored. Use LOOK DOWN to inspect your body.";
-      }
-    );
+    renderer.domElement.addEventListener("touchend", endDrag);
+    renderer.domElement.addEventListener("touchcancel", endDrag);
 
     // =========================================================
-    // TRANSFORMATION
+    // FIRST-PERSON HEAD HIDING
     // =========================================================
 
-    let progress = 0;
-    let transforming = false;
-    let transformStart = 0;
+    function setHeadVisibility(root, visible) {
+      if (!root) return;
 
-    const TRANSFORM_MS = 32000;
+      root.traverse(obj => {
+        if (!obj.isMesh && !obj.isSkinnedMesh) return;
 
-    const status = document.getElementById("status");
-    const barFill = document.getElementById("barFill");
-    const transformBtn = document.getElementById("transformBtn");
+        const n = (obj.name || "").toLowerCase();
 
-    function startTransformation() {
-      if (transforming || progress >= 1) return;
-
-      transforming = true;
-      transformStart =
-        performance.now() - progress * TRANSFORM_MS;
-
-      transformBtn.textContent = "TRANSFORMING";
-
-      status.textContent =
-        "Transformation started. Anatomy, height, body shape, hair and colors are morphing.";
+        // Only hide meshes explicitly named like head/hair/eyes in first person.
+        if (
+          n.includes("head") ||
+          n.includes("hair") ||
+          n.includes("eye") ||
+          n.includes("teeth")
+        ) {
+          obj.visible = visible;
+        }
+      });
     }
-
-    function resetTransformation() {
-      transforming = false;
-      progress = 0;
-
-      applyBody(0);
-      updateFirstPersonCamera(0);
-
-      transformBtn.textContent = "TRANSFORM";
-      barFill.style.width = "0%";
-
-      status.textContent =
-        "Starter form restored. V10 has a more anatomical body, shaped limbs, hands, feet, head and hair.";
-    }
-
-    transformBtn.addEventListener("click", startTransformation);
-    document.getElementById("resetBtn").addEventListener("click", resetTransformation);
 
     // =========================================================
     // LOOP
     // =========================================================
 
-    applyBody(0);
-    updateFirstPersonCamera(0);
+    const euler = new THREE.Euler(0, 0, 0, "YXZ");
 
-    function animate(now) {
+    function animate() {
       requestAnimationFrame(animate);
 
-      yawRoot.rotation.y = yaw;
+      if (!bodyView && activeRoot) {
+        setHeadVisibility(maleRoot, currentSex !== "male");
+        setHeadVisibility(femaleRoot, currentSex !== "female");
 
-      let smooth = progress * progress * (3 - 2 * progress);
-
-      if (transforming) {
-        progress =
-          (now - transformStart) / TRANSFORM_MS;
-
-        progress = THREE.MathUtils.clamp(progress, 0, 1);
-
-        smooth =
-          progress * progress * (3 - 2 * progress);
-
-        applyBody(smooth);
-        updateFirstPersonCamera(smooth);
-
-        const percent = Math.round(progress * 100);
-        barFill.style.width = percent + "%";
-
-        status.textContent =
-          "Transforming... " + percent +
-          "% - anatomy, proportions, height and hair are changing continuously.";
-
-        if (progress >= 1) {
-          transforming = false;
-          transformBtn.textContent = "COMPLETE";
-
-          status.textContent =
-            "Transformation complete. The target human form and hair are fully applied.";
-        }
-      }
-
-      if (!bodyView) {
-        if (camera.parent !== cameraPivot) {
-          cameraPivot.add(camera);
-          camera.position.set(0, 0, 0);
-        }
-
-        camera.rotation.set(pitch, 0, 0);
-
-        // Hide head-side geometry from the eye camera.
-        head.visible = false;
-        neck.visible = false;
-        hair.visible = false;
-        leftEar.visible = false;
-        rightEar.visible = false;
+        euler.set(pitch, yaw, 0);
+        camera.quaternion.setFromEuler(euler);
       } else {
-        head.visible = true;
-        neck.visible = true;
-        hair.visible = true;
-        leftEar.visible = true;
-        rightEar.visible = true;
-
-        if (camera.parent !== scene) {
-          scene.attach(camera);
-        }
-
-        const h = mix(starter.height, target.height, smooth);
-
-        camera.position.set(
-          player.position.x + 1.35,
-          h * 0.72,
-          player.position.z + 3.0
-        );
-
-        camera.lookAt(
-          new THREE.Vector3(
-            player.position.x,
-            h * 0.48,
-            player.position.z
-          )
-        );
+        if (maleRoot) setHeadVisibility(maleRoot, true);
+        if (femaleRoot) setHeadVisibility(femaleRoot, true);
       }
 
       renderer.render(scene, camera);
     }
 
-    requestAnimationFrame(animate);
+    animate();
+
+    setupModels().catch(fail);
 
     // =========================================================
     // RESIZE
     // =========================================================
 
-    window.addEventListener(
-      "resize",
-      () => {
-        camera.aspect =
-          window.innerWidth /
-          window.innerHeight;
-
-        camera.updateProjectionMatrix();
-
-        renderer.setSize(
-          window.innerWidth,
-          window.innerHeight
-        );
-
-        renderer.setPixelRatio(
-          Math.min(window.devicePixelRatio, 2)
-        );
-      }
-    );
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    });
   </script>
 </body>
 </html>
