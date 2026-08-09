@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game V19 - Exact Female Endpoint Bridge</title>
+  <title>Transformation Game V20 - Weighted Bone Volume Bridge</title>
 
   <style>
     * {
@@ -43,7 +43,7 @@
     }
 
     .panel {
-      max-width: 690px;
+      max-width: 700px;
       margin: auto;
       padding: 11px 13px;
       border-radius: 17px;
@@ -167,13 +167,13 @@
 
 <body>
   <div id="game"></div>
-  <div id="loading">Loading V19 and building an exact-female-endpoint regional bridgeâ¦</div>
+  <div id="loading">Loading V20 and building the weighted bone-volume bridge...</div>
   <div id="fatal"></div>
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game - V19 Exact Female Endpoint Bridge</div>
-      <div id="status" class="status">Loading both real endpoint humansâ¦</div>
+      <div class="title">Transformation Game - V20 Weighted Bone Volume Bridge</div>
+      <div id="status" class="status">Loading both real endpoint humans...</div>
       <div id="debug" class="debug"></div>
     </div>
   </div>
@@ -191,7 +191,7 @@
 
     <div class="controlRow">
       <div class="labelLine">
-        <span>MALE TO FEMALE SURFACE</span>
+        <span>WEIGHTED BODY TRANSFORMATION</span>
         <span id="progressValue" class="value">0%</span>
       </div>
       <input id="progressSlider" type="range" min="0" max="1" step="0.001" value="0">
@@ -223,7 +223,7 @@
       loading.style.display = "none";
       fatal.style.display = "block";
       fatal.textContent =
-        "V19 ERROR\n\n" +
+        "V20 ERROR\n\n" +
         (error?.stack || error?.message || String(error)) +
         "\n\nSend me a screenshot of this red box.";
     }
@@ -258,7 +258,6 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-
     document.getElementById("game").appendChild(renderer.domElement);
 
     scene.add(new THREE.HemisphereLight(0xffffff, 0x65727b, 2.2));
@@ -301,7 +300,7 @@
     roomBox(5, 1.5, -1, 0.2, 3, 10, 0xd8dde1);
 
     // =========================================================
-    // LOAD + NORMALIZE
+    // LOAD + MODEL HELPERS
     // =========================================================
 
     const loader = new GLTFLoader();
@@ -373,11 +372,13 @@
     }
 
     // =========================================================
-    // VERTEX HELPERS
+    // VERTEX / SKIN HELPERS
     // =========================================================
 
     const tmp = new THREE.Vector3();
     const tmp2 = new THREE.Vector3();
+    const tmp3 = new THREE.Vector3();
+    const accum = new THREE.Vector3();
     const inv = new THREE.Matrix4();
 
     function getWorldVertex(mesh, index, target) {
@@ -393,303 +394,455 @@
       return mesh.localToWorld(target);
     }
 
-    function dominantBoneName(mesh, index) {
+    function worldToBoneLocal(world, bone, target) {
+      inv.copy(bone.matrixWorld).invert();
+      return target.copy(world).applyMatrix4(inv);
+    }
+
+    function getSkinInfluences(mesh, index) {
       if (
         !mesh.isSkinnedMesh ||
         !mesh.skeleton ||
         !mesh.geometry.attributes.skinIndex ||
         !mesh.geometry.attributes.skinWeight
       ) {
-        return null;
+        return [];
       }
 
       const si = mesh.geometry.attributes.skinIndex;
       const sw = mesh.geometry.attributes.skinWeight;
 
-      const indices = [
+      const ids = [
         si.getX(index),
         si.getY(index),
         si.getZ(index),
         si.getW(index)
       ];
 
-      const weights = [
+      const ws = [
         sw.getX(index),
         sw.getY(index),
         sw.getZ(index),
         sw.getW(index)
       ];
 
-      let best = 0;
+      const out = [];
 
-      for (let k = 1; k < 4; k++) {
-        if (weights[k] > weights[best]) {
-          best = k;
-        }
+      for (let k = 0; k < 4; k++) {
+        const weight = ws[k];
+
+        if (weight <= 0.00001) continue;
+
+        const bone = mesh.skeleton.bones[ids[k]];
+
+        if (!bone || !bone.name) continue;
+
+        out.push({
+          bone,
+          boneName: bone.name,
+          weight
+        });
       }
 
-      const bone =
-        mesh.skeleton.bones[indices[best]];
-
-      return bone?.name || null;
-    }
-
-    function worldToBoneLocal(world, bone, target) {
-      inv.copy(bone.matrixWorld).invert();
-      return target.copy(world).applyMatrix4(inv);
+      return out;
     }
 
     // =========================================================
-    // REGION DATA
+    // BONE VOLUMES
     // =========================================================
 
-    function ensureRegion(map, key) {
-      let region = map.get(key);
+    function ensureVolume(map, boneName) {
+      let v = map.get(boneName);
 
-      if (!region) {
-        region = {
-          key,
-          entries: [],
+      if (!v) {
+        v = {
+          boneName,
           min: new THREE.Vector3(
             +Infinity,+Infinity,+Infinity
           ),
           max: new THREE.Vector3(
             -Infinity,-Infinity,-Infinity
-          )
+          ),
+          count: 0
         };
 
-        map.set(key, region);
+        map.set(boneName, v);
       }
 
-      return region;
+      return v;
     }
 
-    function normalizeLocal(local, min, max, out) {
-      const sx = Math.max(1e-5, max.x-min.x);
-      const sy = Math.max(1e-5, max.y-min.y);
-      const sz = Math.max(1e-5, max.z-min.z);
-
-      return out.set(
-        (local.x-min.x)/sx,
-        (local.y-min.y)/sy,
-        (local.z-min.z)/sz
-      );
+    function expandVolume(volume, p) {
+      volume.min.min(p);
+      volume.max.max(p);
+      volume.count++;
     }
 
-    // A deterministic 3D ordering key.
-    // The tiny mixed terms stop huge ties on nearly-flat regions.
-    function orderingKey(n) {
-      return (
-        n.y * 1000000 +
-        n.x * 1000 +
-        n.z +
-        n.x * n.z * 0.0001
-      );
-    }
-
-    function buildBoneRegions(root, boneMap) {
-      const regions = new Map();
+    function buildBoneVolumes(root, boneMap) {
+      const volumes = new Map();
       const meshes = getRenderableMeshes(root);
 
-      for (let meshIndex = 0; meshIndex < meshes.length; meshIndex++) {
-        const mesh = meshes[meshIndex];
+      for (const mesh of meshes) {
         const count =
           mesh.geometry.attributes.position.count;
 
-        for (let vertexIndex = 0; vertexIndex < count; vertexIndex++) {
-          const boneName =
-            dominantBoneName(mesh, vertexIndex);
+        for (let i = 0; i < count; i++) {
+          const influences =
+            getSkinInfluences(mesh, i);
 
-          if (!boneName) continue;
+          if (influences.length === 0) continue;
 
-          const bone = boneMap.get(boneName);
-          if (!bone) continue;
+          getWorldVertex(mesh, i, tmp);
 
-          getWorldVertex(
-            mesh,
-            vertexIndex,
-            tmp
-          );
+          for (const influence of influences) {
+            // Ignore tiny weights when estimating anatomical volume.
+            if (influence.weight < 0.02) continue;
 
-          worldToBoneLocal(
-            tmp,
-            bone,
-            tmp2
-          );
+            const bone =
+              boneMap.get(influence.boneName);
 
-          const region =
-            ensureRegion(regions, boneName);
+            if (!bone) continue;
 
-          const local = tmp2.clone();
+            worldToBoneLocal(
+              tmp,
+              bone,
+              tmp2
+            );
 
-          region.min.min(local);
-          region.max.max(local);
+            const volume =
+              ensureVolume(
+                volumes,
+                influence.boneName
+              );
 
-          region.entries.push({
-            mesh,
-            meshIndex,
-            vertexIndex,
-            boneName,
-            world: tmp.clone(),
-            local,
-            normalized: new THREE.Vector3(),
-            order: 0
-          });
+            expandVolume(
+              volume,
+              tmp2
+            );
+          }
         }
       }
 
-      for (const region of regions.values()) {
-        for (const entry of region.entries) {
-          normalizeLocal(
-            entry.local,
-            region.min,
-            region.max,
-            entry.normalized
-          );
+      return volumes;
+    }
 
-          entry.order =
-            orderingKey(entry.normalized);
-        }
-
-        region.entries.sort(
-          (a,b) => a.order-b.order
+    function normalizedInVolume(local, volume, target) {
+      const sx =
+        Math.max(
+          1e-5,
+          volume.max.x - volume.min.x
         );
-      }
 
-      return regions;
+      const sy =
+        Math.max(
+          1e-5,
+          volume.max.y - volume.min.y
+        );
+
+      const sz =
+        Math.max(
+          1e-5,
+          volume.max.z - volume.min.z
+        );
+
+      target.set(
+        (local.x - volume.min.x) / sx,
+        (local.y - volume.min.y) / sy,
+        (local.z - volume.min.z) / sz
+      );
+
+      // Softly clamp outliers so one strange vertex cannot explode.
+      target.x = THREE.MathUtils.clamp(target.x, -0.08, 1.08);
+      target.y = THREE.MathUtils.clamp(target.y, -0.08, 1.08);
+      target.z = THREE.MathUtils.clamp(target.z, -0.08, 1.08);
+
+      return target;
+    }
+
+    function denormalizeInVolume(n, volume, target) {
+      target.set(
+        THREE.MathUtils.lerp(
+          volume.min.x,
+          volume.max.x,
+          n.x
+        ),
+        THREE.MathUtils.lerp(
+          volume.min.y,
+          volume.max.y,
+          n.y
+        ),
+        THREE.MathUtils.lerp(
+          volume.min.z,
+          volume.max.z,
+          n.z
+        )
+      );
+
+      return target;
     }
 
     // =========================================================
-    // UNSKINNED / MESH-LEVEL REGIONS
+    // UNSKINNED MESH FALLBACK
     // =========================================================
 
-    function meshSignatureInfo(mesh) {
+    function meshInfo(mesh) {
       return {
         mesh,
-        name: mesh.name || "(unnamed)",
         vertices:
           mesh.geometry.attributes.position.count,
         indices:
-          mesh.geometry.index?.count || 0
+          mesh.geometry.index?.count || 0,
+        name:
+          mesh.name || "(unnamed)"
       };
     }
 
-    function pairMeshesBySize(aMeshes, bMeshes) {
-      const bInfo =
-        bMeshes.map(meshSignatureInfo);
+    function pairMeshesBySize(femaleMeshes, maleMeshes) {
+      const maleInfo =
+        maleMeshes.map(meshInfo);
 
       const used = new Set();
-      const pairs = [];
+      const map = new Map();
 
-      for (const a of aMeshes.map(meshSignatureInfo)) {
-        let best = null;
-        let score = Infinity;
+      for (const female of femaleMeshes.map(meshInfo)) {
+        let bestIndex = -1;
+        let bestScore = Infinity;
 
-        for (let i = 0; i < bInfo.length; i++) {
+        // Prefer exact mesh names when possible.
+        for (let i = 0; i < maleInfo.length; i++) {
           if (used.has(i)) continue;
 
-          const b = bInfo[i];
+          const male = maleInfo[i];
 
-          const s =
-            Math.abs(a.vertices-b.vertices) +
-            Math.abs(a.indices-b.indices) * 0.05;
+          let score =
+            Math.abs(female.vertices - male.vertices) +
+            Math.abs(female.indices - male.indices) * 0.05;
 
-          if (s < score) {
-            score = s;
-            best = { i, b };
+          if (
+            female.name !== "(unnamed)" &&
+            female.name === male.name
+          ) {
+            score -= 100000;
+          }
+
+          if (score < bestScore) {
+            bestScore = score;
+            bestIndex = i;
           }
         }
 
-        if (best) {
-          used.add(best.i);
-
-          pairs.push({
-            a,
-            b: best.b
-          });
+        if (bestIndex >= 0) {
+          used.add(bestIndex);
+          map.set(
+            female.mesh,
+            maleInfo[bestIndex].mesh
+          );
         }
       }
 
-      return pairs;
+      return map;
     }
 
-    function buildMeshRegion(mesh) {
-      const entries = [];
-      const min =
-        new THREE.Vector3(+Infinity,+Infinity,+Infinity);
-      const max =
-        new THREE.Vector3(-Infinity,-Infinity,-Infinity);
-
+    function getMeshWorldBounds(mesh) {
       const count =
         mesh.geometry.attributes.position.count;
 
-      for (let i = 0; i < count; i++) {
-        getWorldVertex(mesh,i,tmp);
-
-        const world = tmp.clone();
-
-        min.min(world);
-        max.max(world);
-
-        entries.push({
-          mesh,
-          vertexIndex: i,
-          world,
-          normalized: new THREE.Vector3(),
-          order: 0
-        });
-      }
-
-      for (const entry of entries) {
-        normalizeLocal(
-          entry.world,
-          min,
-          max,
-          entry.normalized
+      const min =
+        new THREE.Vector3(
+          +Infinity,+Infinity,+Infinity
         );
 
-        entry.order =
-          orderingKey(entry.normalized);
+      const max =
+        new THREE.Vector3(
+          -Infinity,-Infinity,-Infinity
+        );
+
+      for (let i = 0; i < count; i++) {
+        getWorldVertex(mesh, i, tmp);
+        min.min(tmp);
+        max.max(tmp);
       }
 
-      entries.sort((a,b) => a.order-b.order);
+      return { min, max };
+    }
 
-      return {
-        mesh,
-        entries,
-        min,
-        max
-      };
+    function normalizeWorldInBounds(p, bounds, target) {
+      const sx =
+        Math.max(1e-5, bounds.max.x - bounds.min.x);
+      const sy =
+        Math.max(1e-5, bounds.max.y - bounds.min.y);
+      const sz =
+        Math.max(1e-5, bounds.max.z - bounds.min.z);
+
+      return target.set(
+        (p.x - bounds.min.x) / sx,
+        (p.y - bounds.min.y) / sy,
+        (p.z - bounds.min.z) / sz
+      );
+    }
+
+    function denormalizeWorldInBounds(n, bounds, target) {
+      return target.set(
+        THREE.MathUtils.lerp(
+          bounds.min.x,
+          bounds.max.x,
+          n.x
+        ),
+        THREE.MathUtils.lerp(
+          bounds.min.y,
+          bounds.max.y,
+          n.y
+        ),
+        THREE.MathUtils.lerp(
+          bounds.min.z,
+          bounds.max.z,
+          n.z
+        )
+      );
     }
 
     // =========================================================
-    // BRIDGE
+    // BRIDGE DATA
     // =========================================================
 
     let maleRoot;
     let femaleRoot;
+
     let maleBones;
     let femaleBones;
 
-    let maleRegions;
-    let femaleRegions;
+    let maleVolumes;
+    let femaleVolumes;
 
     let bridgeGroup;
     let bridgeParts = [];
 
     let showing = "bridge";
 
-    function regionQuantileEntry(region, q) {
-      if (!region || region.entries.length === 0) {
-        return null;
+    let femaleToMaleMesh = new Map();
+    let femaleMeshBounds = new Map();
+    let maleMeshBounds = new Map();
+
+    function mapFemaleVertexToMaleStart(femaleMesh, index, femaleWorld) {
+      const influences =
+        getSkinInfluences(femaleMesh, index);
+
+      if (influences.length > 0) {
+        accum.set(0,0,0);
+
+        let totalWeight = 0;
+
+        for (const influence of influences) {
+          const boneName =
+            influence.boneName;
+
+          const femaleBone =
+            femaleBones.get(boneName);
+
+          const maleBone =
+            maleBones.get(boneName);
+
+          if (!femaleBone || !maleBone) {
+            continue;
+          }
+
+          const fv =
+            femaleVolumes.get(boneName);
+
+          const mv =
+            maleVolumes.get(boneName);
+
+          // If volume information exists on both bodies:
+          // female bone-local coordinate -> normalized anatomical volume
+          // -> male anatomical volume -> male bone world coordinate.
+          if (
+            fv &&
+            mv &&
+            fv.count >= 2 &&
+            mv.count >= 2
+          ) {
+            worldToBoneLocal(
+              femaleWorld,
+              femaleBone,
+              tmp
+            );
+
+            normalizedInVolume(
+              tmp,
+              fv,
+              tmp2
+            );
+
+            denormalizeInVolume(
+              tmp2,
+              mv,
+              tmp3
+            );
+
+            tmp3.applyMatrix4(
+              maleBone.matrixWorld
+            );
+          } else {
+            // Shared-rig fallback:
+            // preserve raw bone-local coordinates.
+            worldToBoneLocal(
+              femaleWorld,
+              femaleBone,
+              tmp3
+            );
+
+            tmp3.applyMatrix4(
+              maleBone.matrixWorld
+            );
+          }
+
+          accum.addScaledVector(
+            tmp3,
+            influence.weight
+          );
+
+          totalWeight +=
+            influence.weight;
+        }
+
+        if (totalWeight > 0.00001) {
+          accum.multiplyScalar(
+            1 / totalWeight
+          );
+
+          return accum.clone();
+        }
       }
 
-      const i = Math.round(
-        THREE.MathUtils.clamp(q,0,1) *
-        (region.entries.length-1)
-      );
+      // Non-skinned fallback uses mesh-level normalized coordinates.
+      const maleMesh =
+        femaleToMaleMesh.get(femaleMesh);
 
-      return region.entries[i];
+      if (maleMesh) {
+        const fb =
+          femaleMeshBounds.get(femaleMesh);
+
+        const mb =
+          maleMeshBounds.get(maleMesh);
+
+        if (fb && mb) {
+          normalizeWorldInBounds(
+            femaleWorld,
+            fb,
+            tmp
+          );
+
+          denormalizeWorldInBounds(
+            tmp,
+            mb,
+            tmp2
+          );
+
+          return tmp2.clone();
+        }
+      }
+
+      return femaleWorld.clone();
     }
 
     async function buildBridge() {
@@ -699,17 +852,24 @@
       const maleMeshes =
         getRenderableMeshes(maleRoot);
 
-      const meshPairs =
-        pairMeshesBySize(femaleMeshes, maleMeshes);
+      femaleToMaleMesh =
+        pairMeshesBySize(
+          femaleMeshes,
+          maleMeshes
+        );
 
-      const maleMeshRegionByFemale =
-        new Map();
+      // Precompute fallback world bounds once.
+      for (const mesh of femaleMeshes) {
+        femaleMeshBounds.set(
+          mesh,
+          getMeshWorldBounds(mesh)
+        );
+      }
 
-      // Prebuild mesh fallback regions.
-      for (const pair of meshPairs) {
-        maleMeshRegionByFemale.set(
-          pair.a.mesh,
-          buildMeshRegion(pair.b.mesh)
+      for (const mesh of maleMeshes) {
+        maleMeshBounds.set(
+          mesh,
+          getMeshWorldBounds(mesh)
         );
       }
 
@@ -717,171 +877,88 @@
         new THREE.Group();
 
       bridgeGroup.name =
-        "V19FemaleTopologyBridge";
+        "V20WeightedBoneVolumeBridge";
 
       scene.add(bridgeGroup);
 
       bridgeParts = [];
 
-      let exactTargetVertices = 0;
-      let boneMapped = 0;
-      let meshFallback = 0;
+      let exactFemaleTargetVertices = 0;
+      let weightedVertices = 0;
+      let fallbackVertices = 0;
 
-      for (let meshIndex = 0;
-           meshIndex < femaleMeshes.length;
-           meshIndex++) {
-
+      for (
+        let meshIndex = 0;
+        meshIndex < femaleMeshes.length;
+        meshIndex++
+      ) {
         const femaleMesh =
           femaleMeshes[meshIndex];
 
         statusEl.textContent =
-          `Building female-topology bridge ${meshIndex+1}/${femaleMeshes.length}â¦`;
+          `Building weighted bridge ${meshIndex + 1}/${femaleMeshes.length}...`;
 
         const count =
           femaleMesh.geometry.attributes.position.count;
 
         const start =
-          new Float32Array(count*3);
+          new Float32Array(count * 3);
 
         const target =
-          new Float32Array(count*3);
-
-        // For deterministic region rank, create a lookup
-        // from female mesh+vertex to the female region entry.
-        const femaleEntryLookup =
-          new Map();
-
-        for (const region of femaleRegions.values()) {
-          for (let rank = 0;
-               rank < region.entries.length;
-               rank++) {
-
-            const entry =
-              region.entries[rank];
-
-            if (entry.mesh !== femaleMesh) {
-              continue;
-            }
-
-            femaleEntryLookup.set(
-              entry.vertexIndex,
-              {
-                region,
-                rank
-              }
-            );
-          }
-        }
-
-        const fallbackRegion =
-          maleMeshRegionByFemale.get(femaleMesh) || null;
-
-        // Female mesh-level ordering for unskinned fallback.
-        const femaleMeshRegion =
-          buildMeshRegion(femaleMesh);
-
-        const femaleMeshRank =
-          new Map();
-
-        for (let rank = 0;
-             rank < femaleMeshRegion.entries.length;
-             rank++) {
-
-          femaleMeshRank.set(
-            femaleMeshRegion.entries[rank].vertexIndex,
-            rank
-          );
-        }
+          new Float32Array(count * 3);
 
         for (let i = 0; i < count; i++) {
-          // TARGET is literally the real female vertex.
           getWorldVertex(
             femaleMesh,
             i,
             tmp
           );
 
-          const k = i*3;
+          const femaleWorld =
+            tmp.clone();
 
-          target[k] = tmp.x;
-          target[k+1] = tmp.y;
-          target[k+2] = tmp.z;
+          const k =
+            i * 3;
 
-          exactTargetVertices++;
+          // Exact endpoint: literally copy female vertex world position.
+          target[k] =
+            femaleWorld.x;
 
-          // START tries to reconstruct the real male surface
-          // using the same anatomical-region rank.
-          const lookup =
-            femaleEntryLookup.get(i);
+          target[k + 1] =
+            femaleWorld.y;
 
-          let maleStart = null;
+          target[k + 2] =
+            femaleWorld.z;
 
-          if (lookup) {
-            const femaleRegion =
-              lookup.region;
+          exactFemaleTargetVertices++;
 
-            const maleRegion =
-              maleRegions.get(
-                femaleRegion.key
-              );
+          const influences =
+            getSkinInfluences(
+              femaleMesh,
+              i
+            );
 
-            if (
-              maleRegion &&
-              maleRegion.entries.length > 0
-            ) {
-              const q =
-                femaleRegion.entries.length <= 1
-                  ? 0
-                  : lookup.rank /
-                    (femaleRegion.entries.length-1);
+          const maleStart =
+            mapFemaleVertexToMaleStart(
+              femaleMesh,
+              i,
+              femaleWorld
+            );
 
-              const mapped =
-                regionQuantileEntry(
-                  maleRegion,
-                  q
-                );
-
-              if (mapped) {
-                maleStart =
-                  mapped.world;
-
-                boneMapped++;
-              }
-            }
+          if (influences.length > 0) {
+            weightedVertices++;
+          } else {
+            fallbackVertices++;
           }
 
-          if (!maleStart && fallbackRegion) {
-            const rank =
-              femaleMeshRank.get(i) || 0;
+          start[k] =
+            maleStart.x;
 
-            const q =
-              femaleMeshRegion.entries.length <= 1
-                ? 0
-                : rank /
-                  (femaleMeshRegion.entries.length-1);
+          start[k + 1] =
+            maleStart.y;
 
-            const mapped =
-              regionQuantileEntry(
-                fallbackRegion,
-                q
-              );
-
-            if (mapped) {
-              maleStart =
-                mapped.world;
-
-              meshFallback++;
-            }
-          }
-
-          if (!maleStart) {
-            // Last resort: keep target position.
-            maleStart = tmp;
-          }
-
-          start[k] = maleStart.x;
-          start[k+1] = maleStart.y;
-          start[k+2] = maleStart.z;
+          start[k + 2] =
+            maleStart.z;
         }
 
         const geometry =
@@ -895,9 +972,8 @@
           )
         );
 
-        // IMPORTANT:
-        // Use FEMALE topology/indices/UVs.
-        // This is why 100% can become the exact female mesh.
+        // Keep female topology the whole time.
+        // This guarantees the bridge is EXACT female geometry at 100%.
         if (femaleMesh.geometry.index) {
           geometry.setIndex(
             femaleMesh.geometry.index.clone()
@@ -917,7 +993,9 @@
 
         if (Array.isArray(femaleMesh.material)) {
           material =
-            femaleMesh.material.map(m => m.clone());
+            femaleMesh.material.map(
+              m => m.clone()
+            );
         } else if (femaleMesh.material) {
           material =
             femaleMesh.material.clone();
@@ -950,22 +1028,36 @@
 
         await new Promise(
           resolve =>
-            setTimeout(resolve,0)
+            setTimeout(resolve, 0)
         );
       }
 
-      debugEl.textContent =
-        `bridge topology: FEMALE endpoint topology\n` +
-        `female target vertices copied exactly: ${exactTargetVertices}\n` +
-        `bone-region start mappings: ${boneMapped}\n` +
-        `mesh fallback mappings: ${meshFallback}\n` +
-        `male regions: ${maleRegions.size}\n` +
-        `female regions: ${femaleRegions.size}\n` +
-        `100% geometry target error: 0 by construction`;
+      const sharedBones =
+        [...femaleBones.keys()]
+          .filter(name =>
+            maleBones.has(name)
+          ).length;
 
-      maleRoot.visible = false;
-      femaleRoot.visible = false;
-      bridgeGroup.visible = true;
+      debugEl.textContent =
+        `shared bones: ${sharedBones}\n` +
+        `female bone volumes: ${femaleVolumes.size}\n` +
+        `male bone volumes: ${maleVolumes.size}\n` +
+        `weighted vertices: ${weightedVertices}\n` +
+        `mesh fallback vertices: ${fallbackVertices}\n` +
+        `exact female target vertices: ${exactFemaleTargetVertices}\n` +
+        `correspondence: full skin-weight blend + normalized bone volume\n` +
+        `rank sorting: NONE\n` +
+        `nearest-point matching: NONE\n` +
+        `100% target: exact female geometry`;
+
+      maleRoot.visible =
+        false;
+
+      femaleRoot.visible =
+        false;
+
+      bridgeGroup.visible =
+        true;
     }
 
     // =========================================================
@@ -973,14 +1065,18 @@
     // =========================================================
 
     function smootherstep(t) {
-      return t*t*t*(t*(t*6 - 15)+10);
+      return t*t*t*(t*(t*6 - 15) + 10);
     }
 
     let normalFrame = 0;
 
     function applyProgress(raw) {
       const p =
-        THREE.MathUtils.clamp(raw,0,1);
+        THREE.MathUtils.clamp(
+          raw,
+          0,
+          1
+        );
 
       const t =
         smootherstep(p);
@@ -996,13 +1092,14 @@
         const b =
           part.target;
 
-        for (let i = 0;
-             i < live.length;
-             i++) {
-
+        for (
+          let i = 0;
+          i < live.length;
+          i++
+        ) {
           live[i] =
             a[i] +
-            (b[i]-a[i])*t;
+            (b[i] - a[i]) * t;
         }
 
         part.mesh.geometry
@@ -1027,18 +1124,31 @@
         String(p);
 
       progressValue.textContent =
-        Math.round(p*100) + "%";
+        Math.round(p * 100) + "%";
 
       statusEl.textContent =
-        `Exact-endpoint surface transformation - ${Math.round(p*100)}%`;
+        `Weighted bone-volume transformation - ${Math.round(p * 100)}%`;
     }
 
     // =========================================================
     // VIEW MODES
     // =========================================================
 
+    function activeVisual() {
+      if (showing === "male") {
+        return maleRoot;
+      }
+
+      if (showing === "female") {
+        return femaleRoot;
+      }
+
+      return bridgeGroup;
+    }
+
     function setShowing(mode) {
-      showing = mode;
+      showing =
+        mode;
 
       bridgeGroup.visible =
         mode === "bridge";
@@ -1053,15 +1163,11 @@
 
       if (mode === "bridge") {
         statusEl.textContent =
-          "Bridge body - female topology, male-shaped start, exact female target.";
-      }
-
-      if (mode === "male") {
+          "Bridge body - weighted bone-volume start, exact female target.";
+      } else if (mode === "male") {
         statusEl.textContent =
           "Real male endpoint reference.";
-      }
-
-      if (mode === "female") {
+      } else {
         statusEl.textContent =
           "Real female endpoint reference.";
       }
@@ -1071,8 +1177,12 @@
       .addEventListener(
         "click",
         () => {
-          playing = false;
-          setShowing("male");
+          playing =
+            false;
+
+          setShowing(
+            "male"
+          );
         }
       );
 
@@ -1080,8 +1190,12 @@
       .addEventListener(
         "click",
         () => {
-          playing = false;
-          setShowing("female");
+          playing =
+            false;
+
+          setShowing(
+            "female"
+          );
         }
       );
 
@@ -1089,7 +1203,9 @@
       .addEventListener(
         "click",
         () => {
-          setShowing("bridge");
+          setShowing(
+            "bridge"
+          );
         }
       );
 
@@ -1097,19 +1213,32 @@
     // PLAYBACK
     // =========================================================
 
-    let playing = false;
-    let playStart = 0;
-    const PLAY_MS = 17000;
+    let playing =
+      false;
+
+    let playStart =
+      0;
+
+    const PLAY_MS =
+      17000;
 
     document.getElementById("playBtn")
       .addEventListener(
         "click",
         () => {
-          setShowing("bridge");
-          playing = true;
+          setShowing(
+            "bridge"
+          );
+
+          playing =
+            true;
+
           playStart =
             performance.now();
-          applyProgress(0);
+
+          applyProgress(
+            0
+          );
         }
       );
 
@@ -1117,17 +1246,29 @@
       .addEventListener(
         "click",
         () => {
-          playing = false;
-          setShowing("bridge");
-          applyProgress(0);
+          playing =
+            false;
+
+          setShowing(
+            "bridge"
+          );
+
+          applyProgress(
+            0
+          );
         }
       );
 
     progressSlider.addEventListener(
       "input",
       () => {
-        playing = false;
-        setShowing("bridge");
+        playing =
+          false;
+
+        setShowing(
+          "bridge"
+        );
+
         applyProgress(
           Number(
             progressSlider.value
@@ -1140,25 +1281,20 @@
     // CAMERA
     // =========================================================
 
-    let bodyView = true;
-    let yaw = 0;
+    let bodyView =
+      true;
+
+    let yaw =
+      0;
+
     let pitch =
-      THREE.MathUtils.degToRad(-7);
-
-    function activeVisual() {
-      if (showing === "male") {
-        return maleRoot;
-      }
-
-      if (showing === "female") {
-        return femaleRoot;
-      }
-
-      return bridgeGroup;
-    }
+      THREE.MathUtils.degToRad(
+        -7
+      );
 
     function setBodyView() {
-      bodyView = true;
+      bodyView =
+        true;
 
       const visual =
         activeVisual();
@@ -1166,7 +1302,9 @@
       if (!visual) return;
 
       const b =
-        getBounds(visual);
+        getBounds(
+          visual
+        );
 
       camera.position.set(
         b.center.x + 1.5,
@@ -1184,7 +1322,8 @@
     }
 
     function setFirstPerson() {
-      bodyView = false;
+      bodyView =
+        false;
 
       const visual =
         activeVisual();
@@ -1192,7 +1331,9 @@
       if (!visual) return;
 
       const b =
-        getBounds(visual);
+        getBounds(
+          visual
+        );
 
       camera.position.set(
         b.center.x,
@@ -1203,7 +1344,9 @@
       );
 
       pitch =
-        THREE.MathUtils.degToRad(-10);
+        THREE.MathUtils.degToRad(
+          -10
+        );
     }
 
     function lookDown() {
@@ -1212,11 +1355,13 @@
       }
 
       pitch =
-        THREE.MathUtils.degToRad(-66);
+        THREE.MathUtils.degToRad(
+          -66
+        );
 
       statusEl.textContent =
         showing === "bridge"
-          ? "LOOK DOWN - exact-endpoint bridge."
+          ? "LOOK DOWN - weighted bridge."
           : `LOOK DOWN - ${showing} reference.`;
     }
 
@@ -1228,7 +1373,7 @@
 
           statusEl.textContent =
             showing === "bridge"
-              ? "BODY VIEW - exact-endpoint bridge."
+              ? "BODY VIEW - weighted bridge."
               : `BODY VIEW - ${showing} reference.`;
         }
       );
@@ -1239,17 +1384,27 @@
         lookDown
       );
 
-    let dragging = false;
-    let lastX = 0;
-    let lastY = 0;
+    let dragging =
+      false;
+
+    let lastX =
+      0;
+
+    let lastY =
+      0;
 
     const sensitivity =
       0.004;
 
     function startDrag(x,y) {
-      dragging = true;
-      lastX = x;
-      lastY = y;
+      dragging =
+        true;
+
+      lastX =
+        x;
+
+      lastY =
+        y;
     }
 
     function drag(x,y) {
@@ -1261,19 +1416,22 @@
       }
 
       const dx =
-        x-lastX;
+        x - lastX;
 
       const dy =
-        y-lastY;
+        y - lastY;
 
-      lastX = x;
-      lastY = y;
+      lastX =
+        x;
+
+      lastY =
+        y;
 
       yaw -=
-        dx*sensitivity;
+        dx * sensitivity;
 
       pitch -=
-        dy*sensitivity;
+        dy * sensitivity;
 
       pitch =
         THREE.MathUtils.clamp(
@@ -1284,7 +1442,8 @@
     }
 
     function endDrag() {
-      dragging = false;
+      dragging =
+        false;
     }
 
     renderer.domElement.addEventListener(
@@ -1345,15 +1504,20 @@
 
       if (playing) {
         let p =
-          (now-playStart) /
+          (now - playStart) /
           PLAY_MS;
 
         if (p >= 1) {
-          p = 1;
-          playing = false;
+          p =
+            1;
+
+          playing =
+            false;
         }
 
-        applyProgress(p);
+        applyProgress(
+          p
+        );
       }
 
       if (!bodyView) {
@@ -1364,7 +1528,9 @@
         );
 
         camera.quaternion
-          .setFromEuler(euler);
+          .setFromEuler(
+            euler
+          );
       }
 
       renderer.render(
@@ -1381,7 +1547,7 @@
 
     async function setup() {
       statusEl.textContent =
-        "Loading real male endpointâ¦";
+        "Loading real male endpoint...";
 
       const maleGLTF =
         await loadGLB(
@@ -1389,7 +1555,7 @@
         );
 
       statusEl.textContent =
-        "Loading real female endpointâ¦";
+        "Loading real female endpoint...";
 
       const femaleGLTF =
         await loadGLB(
@@ -1402,8 +1568,13 @@
       femaleRoot =
         femaleGLTF.scene;
 
-      scene.add(maleRoot);
-      scene.add(femaleRoot);
+      scene.add(
+        maleRoot
+      );
+
+      scene.add(
+        femaleRoot
+      );
 
       normalizeModel(
         maleRoot,
@@ -1416,48 +1587,67 @@
       );
 
       maleBones =
-        collectBones(maleRoot);
+        collectBones(
+          maleRoot
+        );
 
       femaleBones =
-        collectBones(femaleRoot);
+        collectBones(
+          femaleRoot
+        );
 
-      maleRoot.updateMatrixWorld(true);
-      femaleRoot.updateMatrixWorld(true);
+      maleRoot.updateMatrixWorld(
+        true
+      );
+
+      femaleRoot.updateMatrixWorld(
+        true
+      );
 
       statusEl.textContent =
-        "Building male bone regionsâ¦";
+        "Measuring male bone volumes...";
 
-      maleRegions =
-        buildBoneRegions(
+      maleVolumes =
+        buildBoneVolumes(
           maleRoot,
           maleBones
         );
 
       statusEl.textContent =
-        "Building female bone regionsâ¦";
+        "Measuring female bone volumes...";
 
-      femaleRegions =
-        buildBoneRegions(
+      femaleVolumes =
+        buildBoneVolumes(
           femaleRoot,
           femaleBones
         );
 
-      maleRoot.visible = false;
-      femaleRoot.visible = false;
+      maleRoot.visible =
+        false;
+
+      femaleRoot.visible =
+        false;
 
       await buildBridge();
 
-      applyProgress(0);
-      setShowing("bridge");
+      applyProgress(
+        0
+      );
+
+      setShowing(
+        "bridge"
+      );
 
       loading.style.display =
         "none";
 
       statusEl.textContent =
-        "V19 ready. At 100%, the bridge uses the exact real female vertex positions and female topology.";
+        "V20 ready. Female topology is warped into male bone volumes at 0%, then returns continuously to exact female geometry at 100%.";
     }
 
-    setup().catch(fail);
+    setup().catch(
+      fail
+    );
 
     window.addEventListener(
       "resize",
