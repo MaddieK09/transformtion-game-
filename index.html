@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game V20 - Weighted Bone Volume Bridge</title>
+  <title>Transformation Game V21 - Curvier Female Endpoint Bridge</title>
 
   <style>
     * {
@@ -167,12 +167,12 @@
 
 <body>
   <div id="game"></div>
-  <div id="loading">Loading V20 and building the weighted bone-volume bridge...</div>
+  <div id="loading">Loading V21 and building the curvier weighted bone-volume bridge...</div>
   <div id="fatal"></div>
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game - V20 Weighted Bone Volume Bridge</div>
+      <div class="title">Transformation Game - V21 Curvier Female Endpoint Bridge</div>
       <div id="status" class="status">Loading both real endpoint humans...</div>
       <div id="debug" class="debug"></div>
     </div>
@@ -722,6 +722,61 @@
     let femaleToMaleMesh = new Map();
     let femaleMeshBounds = new Map();
     let maleMeshBounds = new Map();
+    let femaleBodyBounds;
+
+    const CURVE_PROFILE = {
+      chestOut: 0.060,
+      chestForward: 0.055,
+      hipsOut: 0.090,
+      waistIn: 0.050,
+      thighOut: 0.050,
+      buttBack: 0.040
+    };
+
+    function bandMask(v, a, b, c, d) {
+      const rise = THREE.MathUtils.smoothstep(v, a, b);
+      const fall = 1 - THREE.MathUtils.smoothstep(v, c, d);
+      return THREE.MathUtils.clamp(rise * fall, 0, 1);
+    }
+
+    function stylizeCurvyFemaleWorld(world) {
+      if (!femaleBodyBounds) return world.clone();
+
+      const { box, size, center } = femaleBodyBounds;
+      const out = world.clone();
+
+      const halfW = Math.max(0.0001, size.x * 0.5);
+      const halfD = Math.max(0.0001, size.z * 0.5);
+      const nx = (world.x - center.x) / halfW;
+      const ny = (world.y - box.min.y) / Math.max(0.0001, size.y);
+      const nz = (world.z - center.z) / halfD;
+      const absX = Math.abs(nx);
+      const side = nx < 0 ? -1 : 1;
+
+      const chestBand = bandMask(ny, 0.54, 0.61, 0.75, 0.82);
+      const waistBand = bandMask(ny, 0.48, 0.55, 0.64, 0.71);
+      const hipBand = bandMask(ny, 0.36, 0.45, 0.58, 0.67);
+      const thighBand = bandMask(ny, 0.21, 0.29, 0.43, 0.55);
+      const buttBand = bandMask(ny, 0.34, 0.43, 0.58, 0.67);
+
+      const bustSeparation = THREE.MathUtils.smoothstep(absX, 0.08, 0.20);
+      const bustOuterFade = 1 - THREE.MathUtils.smoothstep(absX, 0.50, 0.92);
+      const bustLobe = chestBand * bustSeparation * bustOuterFade;
+
+      out.x += side * size.x * CURVE_PROFILE.hipsOut * hipBand * (0.30 + absX * 0.70);
+      out.x += side * size.x * CURVE_PROFILE.thighOut * thighBand * (0.25 + absX * 0.75);
+      out.x -= side * size.x * CURVE_PROFILE.waistIn * waistBand * (0.20 + absX * 0.80);
+
+      out.x += side * size.x * CURVE_PROFILE.chestOut * bustLobe;
+
+      const frontMask = THREE.MathUtils.smoothstep(nz, -0.05, 0.25);
+      out.z += size.z * CURVE_PROFILE.chestForward * bustLobe * frontMask;
+
+      const backMask = 1 - THREE.MathUtils.smoothstep(nz, -0.25, 0.05);
+      out.z -= size.z * CURVE_PROFILE.buttBack * buttBand * backMask;
+
+      return out;
+    }
 
     function mapFemaleVertexToMaleStart(femaleMesh, index, femaleWorld) {
       const influences =
@@ -920,15 +975,19 @@
           const k =
             i * 3;
 
-          // Exact endpoint: literally copy female vertex world position.
+          // Curvier endpoint: start from the real female world vertex,
+          // then apply a stylized curvy-body enhancement so the transformation reads more clearly.
+          const targetWorld =
+            stylizeCurvyFemaleWorld(femaleWorld);
+
           target[k] =
-            femaleWorld.x;
+            targetWorld.x;
 
           target[k + 1] =
-            femaleWorld.y;
+            targetWorld.y;
 
           target[k + 2] =
-            femaleWorld.z;
+            targetWorld.z;
 
           exactFemaleTargetVertices++;
 
@@ -1048,7 +1107,8 @@
         `correspondence: full skin-weight blend + normalized bone volume\n` +
         `rank sorting: NONE\n` +
         `nearest-point matching: NONE\n` +
-        `100% target: exact female geometry`;
+        `100% target: curvier stylized female geometry\n` +
+        `curve profile: bigger chest + hips + thighs + tighter waist`;
 
       maleRoot.visible =
         false;
@@ -1163,7 +1223,7 @@
 
       if (mode === "bridge") {
         statusEl.textContent =
-          "Bridge body - weighted bone-volume start, exact female target.";
+          "Bridge body - weighted bone-volume start, curvier stylized female target.";
       } else if (mode === "male") {
         statusEl.textContent =
           "Real male endpoint reference.";
@@ -1586,6 +1646,9 @@
         1.65
       );
 
+      femaleBodyBounds =
+        getBounds(femaleRoot);
+
       maleBones =
         collectBones(
           maleRoot
@@ -1642,7 +1705,7 @@
         "none";
 
       statusEl.textContent =
-        "V20 ready. Female topology is warped into male bone volumes at 0%, then returns continuously to exact female geometry at 100%.";
+        "V21 ready. Female topology starts in a male-shaped bridge, then transforms into a deliberately curvier female endpoint for a more obvious morph.";
     }
 
     setup().catch(
