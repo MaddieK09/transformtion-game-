@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game Prototype V8.1</title>
+  <title>Transformation Game Prototype V8.2</title>
 
   <style>
     * {
@@ -133,9 +133,12 @@
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game - V8.1 Smooth Humanoid</div>
+      <div class="title">Transformation Game - V8.2 Visible Humanoid</div>
       <div id="status" class="status">
         Starter form. This version uses one smooth organic body surface.
+      </div>
+      <div id="debugInfo" class="status" style="margin-top:4px; opacity:0.72;">
+        Field elements: 0
       </div>
       <div class="bar">
         <div id="barFill"></div>
@@ -144,7 +147,7 @@
   </div>
 
   <div id="hint">
-    V8.1: fixed Three.js module loading for the smooth humanoid
+    V8.2: stronger metaball field + explicit marching-cubes update
   </div>
 
   <div id="bottomUI">
@@ -184,7 +187,7 @@
     function showFatalError(message) {
       fatalError.style.display = "block";
       fatalError.textContent =
-        "V8.1 render error\n\n" +
+        "V8.2 render error\n\n" +
         String(message) +
         "\n\nSend me a screenshot of this message.";
     }
@@ -300,6 +303,7 @@
 
     body.enableUvs = false;
     body.enableColors = false;
+    body.isolation = 80;
 
     // MarchingCubes lives in local -1..1-ish space after scale.
     // We shape it in normalized 0..1 field coordinates, then scale to human size.
@@ -385,11 +389,17 @@
     // METABALL HELPERS
     // =========================================================
 
+    let fieldElementCount = 0;
+
     function addBall(x, y, z, size, stretch = 1.0) {
-      // Strength roughly controls radius. The subtraction value controls surface tightness.
-      const strength = size * stretch;
+      // Three.js MarchingCubes expects a substantially stronger reciprocal field
+      // than the tiny values used in V8.1. These values are intentionally chunky
+      // for this visibility test, then we can sculpt them down once confirmed.
+      const strength = Math.max(0.32, size * stretch * 4.8);
       const subtract = 12.0;
+
       body.addBall(x, y, z, strength, subtract);
+      fieldElementCount++;
     }
 
     function addChain(a, b, count, sizeA, sizeB) {
@@ -414,6 +424,7 @@
       const s = shapeAt(p);
 
       body.reset();
+      fieldElementCount = 0;
 
       // Height is handled mostly by world scale to keep all proportions coherent.
       const heightScale = s.height / starter.height;
@@ -596,6 +607,13 @@
       }
 
       bodyMaterial.color.copy(starter.color).lerp(target.color, p);
+
+      // Force the isosurface to regenerate now instead of relying only on render hooks.
+      body.update();
+
+      document.getElementById("debugInfo").textContent =
+        "Field elements: " + fieldElementCount +
+        " | isolation: " + body.isolation;
     }
 
     // =========================================================
@@ -834,9 +852,9 @@
         const h = currentShape.height;
 
         camera.position.set(
-          player.position.x + 1.55,
-          h * 0.68,
-          player.position.z + 3.2
+          player.position.x + 1.85,
+          h * 0.72,
+          player.position.z + 3.8
         );
 
         camera.lookAt(
