@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game V18 - Regional Surface Bridge</title>
+  <title>Transformation Game V19 - Exact Female Endpoint Bridge</title>
 
   <style>
     * {
@@ -43,7 +43,7 @@
     }
 
     .panel {
-      max-width: 670px;
+      max-width: 690px;
       margin: auto;
       padding: 11px 13px;
       border-radius: 17px;
@@ -69,7 +69,7 @@
       margin-top: 4px;
       font-size: 10px;
       line-height: 1.35;
-      opacity: 0.72;
+      opacity: 0.74;
       white-space: pre-line;
     }
 
@@ -79,7 +79,7 @@
       right: 8px;
       bottom: calc(env(safe-area-inset-bottom) + 8px);
       z-index: 30;
-      max-height: 43vh;
+      max-height: 44vh;
       overflow: auto;
       border-radius: 18px;
       background: rgba(12,14,18,0.93);
@@ -98,7 +98,7 @@
       border: 0;
       border-radius: 13px;
       padding: 10px 11px;
-      min-width: 94px;
+      min-width: 92px;
       color: #111;
       background: rgba(255,255,255,0.94);
       font-size: 12px;
@@ -167,13 +167,13 @@
 
 <body>
   <div id="game"></div>
-  <div id="loading">Loading V18 and building regional male-to-female surface correspondenceâ¦</div>
+  <div id="loading">Loading V19 and building an exact-female-endpoint regional bridgeâ¦</div>
   <div id="fatal"></div>
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game - V18 Regional Surface Bridge</div>
-      <div id="status" class="status">Loading both real human endpointsâ¦</div>
+      <div class="title">Transformation Game - V19 Exact Female Endpoint Bridge</div>
+      <div id="status" class="status">Loading both real endpoint humansâ¦</div>
       <div id="debug" class="debug"></div>
     </div>
   </div>
@@ -184,13 +184,14 @@
       <button id="lookBtn">LOOK DOWN</button>
       <button id="resetBtn">RESET</button>
       <button id="playBtn">PLAY MORPH</button>
-      <button id="femaleRefBtn">FEMALE REFERENCE</button>
-      <button id="bridgeBtn">BRIDGE BODY</button>
+      <button id="maleRefBtn">MALE REF</button>
+      <button id="femaleRefBtn">FEMALE REF</button>
+      <button id="bridgeBtn">BRIDGE</button>
     </div>
 
     <div class="controlRow">
       <div class="labelLine">
-        <span>REGIONAL TRANSFORMATION</span>
+        <span>MALE TO FEMALE SURFACE</span>
         <span id="progressValue" class="value">0%</span>
       </div>
       <input id="progressSlider" type="range" min="0" max="1" step="0.001" value="0">
@@ -222,7 +223,7 @@
       loading.style.display = "none";
       fatal.style.display = "block";
       fatal.textContent =
-        "V18 ERROR\n\n" +
+        "V19 ERROR\n\n" +
         (error?.stack || error?.message || String(error)) +
         "\n\nSend me a screenshot of this red box.";
     }
@@ -257,6 +258,7 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+
     document.getElementById("game").appendChild(renderer.domElement);
 
     scene.add(new THREE.HemisphereLight(0xffffff, 0x65727b, 2.2));
@@ -276,13 +278,17 @@
         roughness: 0.95
       })
     );
+
     floor.rotation.x = -Math.PI / 2;
     scene.add(floor);
 
     function roomBox(x, y, z, sx, sy, sz, color) {
       const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(1,1,1),
-        new THREE.MeshStandardMaterial({ color, roughness: 0.88 })
+        new THREE.MeshStandardMaterial({
+          color,
+          roughness: 0.88
+        })
       );
 
       mesh.position.set(x,y,z);
@@ -355,7 +361,10 @@
       const out = [];
 
       root.traverse(obj => {
-        if ((obj.isMesh || obj.isSkinnedMesh) && obj.geometry?.attributes?.position) {
+        if (
+          (obj.isMesh || obj.isSkinnedMesh) &&
+          obj.geometry?.attributes?.position
+        ) {
           out.push(obj);
         }
       });
@@ -364,7 +373,7 @@
     }
 
     // =========================================================
-    // VERTEX + SKIN HELPERS
+    // VERTEX HELPERS
     // =========================================================
 
     const tmp = new THREE.Vector3();
@@ -372,7 +381,10 @@
     const inv = new THREE.Matrix4();
 
     function getWorldVertex(mesh, index, target) {
-      target.fromBufferAttribute(mesh.geometry.attributes.position, index);
+      target.fromBufferAttribute(
+        mesh.geometry.attributes.position,
+        index
+      );
 
       if (mesh.isSkinnedMesh && mesh.skeleton) {
         mesh.applyBoneTransform(index, target);
@@ -408,13 +420,17 @@
         sw.getW(index)
       ];
 
-      let bestK = 0;
+      let best = 0;
 
       for (let k = 1; k < 4; k++) {
-        if (weights[k] > weights[bestK]) bestK = k;
+        if (weights[k] > weights[best]) {
+          best = k;
+        }
       }
 
-      const bone = mesh.skeleton.bones[indices[bestK]];
+      const bone =
+        mesh.skeleton.bones[indices[best]];
+
       return bone?.name || null;
     }
 
@@ -424,194 +440,230 @@
     }
 
     // =========================================================
-    // REGIONAL CLOUDS
+    // REGION DATA
     // =========================================================
 
-    function ensureRegion(map, name) {
-      let r = map.get(name);
+    function ensureRegion(map, key) {
+      let region = map.get(key);
 
-      if (!r) {
-        r = {
-          name,
-          localPoints: [],
-          worldPoints: [],
-          min: new THREE.Vector3(+Infinity,+Infinity,+Infinity),
-          max: new THREE.Vector3(-Infinity,-Infinity,-Infinity),
-          normalized: null,
-          hash: null
+      if (!region) {
+        region = {
+          key,
+          entries: [],
+          min: new THREE.Vector3(
+            +Infinity,+Infinity,+Infinity
+          ),
+          max: new THREE.Vector3(
+            -Infinity,-Infinity,-Infinity
+          )
         };
-        map.set(name, r);
+
+        map.set(key, region);
       }
 
-      return r;
+      return region;
     }
 
-    function expandBounds(region, p) {
-      region.min.min(p);
-      region.max.max(p);
-    }
+    function normalizeLocal(local, min, max, out) {
+      const sx = Math.max(1e-5, max.x-min.x);
+      const sy = Math.max(1e-5, max.y-min.y);
+      const sz = Math.max(1e-5, max.z-min.z);
 
-    function normalizePointToBounds(p, min, max, target) {
-      const sx = Math.max(1e-5, max.x - min.x);
-      const sy = Math.max(1e-5, max.y - min.y);
-      const sz = Math.max(1e-5, max.z - min.z);
-
-      target.set(
-        (p.x - min.x) / sx,
-        (p.y - min.y) / sy,
-        (p.z - min.z) / sz
+      return out.set(
+        (local.x-min.x)/sx,
+        (local.y-min.y)/sy,
+        (local.z-min.z)/sz
       );
-
-      return target;
     }
 
-    const HASH_CELL = 0.09;
-
-    function hashKey(x,y,z) {
-      return `${x}|${y}|${z}`;
+    // A deterministic 3D ordering key.
+    // The tiny mixed terms stop huge ties on nearly-flat regions.
+    function orderingKey(n) {
+      return (
+        n.y * 1000000 +
+        n.x * 1000 +
+        n.z +
+        n.x * n.z * 0.0001
+      );
     }
 
-    function hashCoord(v) {
-      return Math.floor(v / HASH_CELL);
-    }
-
-    function buildHash(points) {
-      const map = new Map();
-
-      for (let i = 0; i < points.length; i += 3) {
-        const x = points[i];
-        const y = points[i + 1];
-        const z = points[i + 2];
-
-        const key = hashKey(
-          hashCoord(x),
-          hashCoord(y),
-          hashCoord(z)
-        );
-
-        let bucket = map.get(key);
-
-        if (!bucket) {
-          bucket = [];
-          map.set(key, bucket);
-        }
-
-        bucket.push(i / 3);
-      }
-
-      return map;
-    }
-
-    function nearestNormalizedIndex(px,py,pz,points,hash) {
-      const cx = hashCoord(px);
-      const cy = hashCoord(py);
-      const cz = hashCoord(pz);
-
-      let best = -1;
-      let bestDist = Infinity;
-
-      for (let radius = 0; radius <= 3; radius++) {
-        let found = false;
-
-        for (let dx = -radius; dx <= radius; dx++) {
-          for (let dy = -radius; dy <= radius; dy++) {
-            for (let dz = -radius; dz <= radius; dz++) {
-              if (
-                radius > 0 &&
-                Math.abs(dx) !== radius &&
-                Math.abs(dy) !== radius &&
-                Math.abs(dz) !== radius
-              ) continue;
-
-              const bucket = hash.get(
-                hashKey(cx+dx, cy+dy, cz+dz)
-              );
-
-              if (!bucket) continue;
-              found = true;
-
-              for (const idx of bucket) {
-                const k = idx * 3;
-                const qx = points[k];
-                const qy = points[k+1];
-                const qz = points[k+2];
-
-                const ddx = qx - px;
-                const ddy = qy - py;
-                const ddz = qz - pz;
-
-                const d = ddx*ddx + ddy*ddy + ddz*ddz;
-
-                if (d < bestDist) {
-                  bestDist = d;
-                  best = idx;
-                }
-              }
-            }
-          }
-        }
-
-        if (found && best >= 0) return best;
-      }
-
-      return best;
-    }
-
-    function buildRegions(root, boneMap) {
+    function buildBoneRegions(root, boneMap) {
       const regions = new Map();
       const meshes = getRenderableMeshes(root);
 
-      for (const mesh of meshes) {
-        const count = mesh.geometry.attributes.position.count;
+      for (let meshIndex = 0; meshIndex < meshes.length; meshIndex++) {
+        const mesh = meshes[meshIndex];
+        const count =
+          mesh.geometry.attributes.position.count;
 
-        for (let i = 0; i < count; i++) {
-          const boneName = dominantBoneName(mesh, i);
+        for (let vertexIndex = 0; vertexIndex < count; vertexIndex++) {
+          const boneName =
+            dominantBoneName(mesh, vertexIndex);
+
           if (!boneName) continue;
 
           const bone = boneMap.get(boneName);
           if (!bone) continue;
 
-          getWorldVertex(mesh, i, tmp);
-          worldToBoneLocal(tmp, bone, tmp2);
+          getWorldVertex(
+            mesh,
+            vertexIndex,
+            tmp
+          );
 
-          const r = ensureRegion(regions, boneName);
-
-          r.localPoints.push(tmp2.x, tmp2.y, tmp2.z);
-          r.worldPoints.push(tmp.x, tmp.y, tmp.z);
-
-          expandBounds(r, tmp2);
-        }
-      }
-
-      // Normalize + hash every region.
-      for (const region of regions.values()) {
-        const lp = region.localPoints;
-        const normalized = new Float32Array(lp.length);
-
-        for (let i = 0; i < lp.length; i += 3) {
-          tmp.set(lp[i],lp[i+1],lp[i+2]);
-
-          normalizePointToBounds(
+          worldToBoneLocal(
             tmp,
-            region.min,
-            region.max,
+            bone,
             tmp2
           );
 
-          normalized[i] = tmp2.x;
-          normalized[i+1] = tmp2.y;
-          normalized[i+2] = tmp2.z;
+          const region =
+            ensureRegion(regions, boneName);
+
+          const local = tmp2.clone();
+
+          region.min.min(local);
+          region.max.max(local);
+
+          region.entries.push({
+            mesh,
+            meshIndex,
+            vertexIndex,
+            boneName,
+            world: tmp.clone(),
+            local,
+            normalized: new THREE.Vector3(),
+            order: 0
+          });
+        }
+      }
+
+      for (const region of regions.values()) {
+        for (const entry of region.entries) {
+          normalizeLocal(
+            entry.local,
+            region.min,
+            region.max,
+            entry.normalized
+          );
+
+          entry.order =
+            orderingKey(entry.normalized);
         }
 
-        region.normalized = normalized;
-        region.hash = buildHash(normalized);
+        region.entries.sort(
+          (a,b) => a.order-b.order
+        );
       }
 
       return regions;
     }
 
     // =========================================================
-    // REGIONAL CORRESPONDENCE
+    // UNSKINNED / MESH-LEVEL REGIONS
+    // =========================================================
+
+    function meshSignatureInfo(mesh) {
+      return {
+        mesh,
+        name: mesh.name || "(unnamed)",
+        vertices:
+          mesh.geometry.attributes.position.count,
+        indices:
+          mesh.geometry.index?.count || 0
+      };
+    }
+
+    function pairMeshesBySize(aMeshes, bMeshes) {
+      const bInfo =
+        bMeshes.map(meshSignatureInfo);
+
+      const used = new Set();
+      const pairs = [];
+
+      for (const a of aMeshes.map(meshSignatureInfo)) {
+        let best = null;
+        let score = Infinity;
+
+        for (let i = 0; i < bInfo.length; i++) {
+          if (used.has(i)) continue;
+
+          const b = bInfo[i];
+
+          const s =
+            Math.abs(a.vertices-b.vertices) +
+            Math.abs(a.indices-b.indices) * 0.05;
+
+          if (s < score) {
+            score = s;
+            best = { i, b };
+          }
+        }
+
+        if (best) {
+          used.add(best.i);
+
+          pairs.push({
+            a,
+            b: best.b
+          });
+        }
+      }
+
+      return pairs;
+    }
+
+    function buildMeshRegion(mesh) {
+      const entries = [];
+      const min =
+        new THREE.Vector3(+Infinity,+Infinity,+Infinity);
+      const max =
+        new THREE.Vector3(-Infinity,-Infinity,-Infinity);
+
+      const count =
+        mesh.geometry.attributes.position.count;
+
+      for (let i = 0; i < count; i++) {
+        getWorldVertex(mesh,i,tmp);
+
+        const world = tmp.clone();
+
+        min.min(world);
+        max.max(world);
+
+        entries.push({
+          mesh,
+          vertexIndex: i,
+          world,
+          normalized: new THREE.Vector3(),
+          order: 0
+        });
+      }
+
+      for (const entry of entries) {
+        normalizeLocal(
+          entry.world,
+          min,
+          max,
+          entry.normalized
+        );
+
+        entry.order =
+          orderingKey(entry.normalized);
+      }
+
+      entries.sort((a,b) => a.order-b.order);
+
+      return {
+        mesh,
+        entries,
+        min,
+        max
+      };
+    }
+
+    // =========================================================
+    // BRIDGE
     // =========================================================
 
     let maleRoot;
@@ -625,121 +677,215 @@
     let bridgeGroup;
     let bridgeParts = [];
 
-    let showingReference = false;
+    let showing = "bridge";
 
-    function fallbackBoneMap(worldPos, maleBone, femaleBone) {
-      worldToBoneLocal(worldPos, maleBone, tmp);
-      return tmp.applyMatrix4(femaleBone.matrixWorld).clone();
-    }
-
-    function mapRegionalSurface(mesh, index, maleWorld) {
-      const boneName = dominantBoneName(mesh, index);
-
-      if (!boneName) return maleWorld.clone();
-
-      const maleBone = maleBones.get(boneName);
-      const femaleBone = femaleBones.get(boneName);
-
-      if (!maleBone || !femaleBone) {
-        return maleWorld.clone();
+    function regionQuantileEntry(region, q) {
+      if (!region || region.entries.length === 0) {
+        return null;
       }
 
-      const mr = maleRegions.get(boneName);
-      const fr = femaleRegions.get(boneName);
-
-      if (
-        !mr ||
-        !fr ||
-        !fr.normalized ||
-        fr.normalized.length < 3
-      ) {
-        return fallbackBoneMap(maleWorld, maleBone, femaleBone);
-      }
-
-      // Male local point.
-      worldToBoneLocal(maleWorld, maleBone, tmp);
-
-      // Normalize using the male region's own local bounds.
-      normalizePointToBounds(tmp, mr.min, mr.max, tmp2);
-
-      const idx = nearestNormalizedIndex(
-        tmp2.x,
-        tmp2.y,
-        tmp2.z,
-        fr.normalized,
-        fr.hash
+      const i = Math.round(
+        THREE.MathUtils.clamp(q,0,1) *
+        (region.entries.length-1)
       );
 
-      if (idx < 0) {
-        return fallbackBoneMap(maleWorld, maleBone, femaleBone);
-      }
-
-      // Actual female local-space point corresponding to normalized region location.
-      const k = idx * 3;
-
-      tmp.set(
-        fr.localPoints[k],
-        fr.localPoints[k+1],
-        fr.localPoints[k+2]
-      );
-
-      // Female bone local -> world.
-      return tmp.applyMatrix4(femaleBone.matrixWorld).clone();
+      return region.entries[i];
     }
-
-    // =========================================================
-    // BUILD BRIDGE
-    // =========================================================
 
     async function buildBridge() {
-      const maleMeshes = getRenderableMeshes(maleRoot);
+      const femaleMeshes =
+        getRenderableMeshes(femaleRoot);
 
-      bridgeGroup = new THREE.Group();
-      bridgeGroup.name = "V18RegionalBridge";
+      const maleMeshes =
+        getRenderableMeshes(maleRoot);
+
+      const meshPairs =
+        pairMeshesBySize(femaleMeshes, maleMeshes);
+
+      const maleMeshRegionByFemale =
+        new Map();
+
+      // Prebuild mesh fallback regions.
+      for (const pair of meshPairs) {
+        maleMeshRegionByFemale.set(
+          pair.a.mesh,
+          buildMeshRegion(pair.b.mesh)
+        );
+      }
+
+      bridgeGroup =
+        new THREE.Group();
+
+      bridgeGroup.name =
+        "V19FemaleTopologyBridge";
+
       scene.add(bridgeGroup);
 
       bridgeParts = [];
 
-      let regionalMapped = 0;
-      let fallbackMapped = 0;
-      let totalVerts = 0;
+      let exactTargetVertices = 0;
+      let boneMapped = 0;
+      let meshFallback = 0;
 
-      for (let m = 0; m < maleMeshes.length; m++) {
-        const source = maleMeshes[m];
+      for (let meshIndex = 0;
+           meshIndex < femaleMeshes.length;
+           meshIndex++) {
+
+        const femaleMesh =
+          femaleMeshes[meshIndex];
 
         statusEl.textContent =
-          `Building regional bridge ${m+1}/${maleMeshes.length}â¦`;
+          `Building female-topology bridge ${meshIndex+1}/${femaleMeshes.length}â¦`;
 
-        const count = source.geometry.attributes.position.count;
+        const count =
+          femaleMesh.geometry.attributes.position.count;
 
-        const start = new Float32Array(count * 3);
-        const target = new Float32Array(count * 3);
+        const start =
+          new Float32Array(count*3);
 
-        for (let i = 0; i < count; i++) {
-          getWorldVertex(source, i, tmp);
+        const target =
+          new Float32Array(count*3);
 
-          const k = i * 3;
-          start[k] = tmp.x;
-          start[k+1] = tmp.y;
-          start[k+2] = tmp.z;
+        // For deterministic region rank, create a lookup
+        // from female mesh+vertex to the female region entry.
+        const femaleEntryLookup =
+          new Map();
 
-          const boneName = dominantBoneName(source, i);
-          const hasRegion =
-            boneName &&
-            maleRegions.has(boneName) &&
-            femaleRegions.has(boneName);
+        for (const region of femaleRegions.values()) {
+          for (let rank = 0;
+               rank < region.entries.length;
+               rank++) {
 
-          const mapped = mapRegionalSurface(source, i, tmp);
+            const entry =
+              region.entries[rank];
 
-          target[k] = mapped.x;
-          target[k+1] = mapped.y;
-          target[k+2] = mapped.z;
+            if (entry.mesh !== femaleMesh) {
+              continue;
+            }
 
-          if (hasRegion) regionalMapped++;
-          else fallbackMapped++;
+            femaleEntryLookup.set(
+              entry.vertexIndex,
+              {
+                region,
+                rank
+              }
+            );
+          }
         }
 
-        const geometry = new THREE.BufferGeometry();
+        const fallbackRegion =
+          maleMeshRegionByFemale.get(femaleMesh) || null;
+
+        // Female mesh-level ordering for unskinned fallback.
+        const femaleMeshRegion =
+          buildMeshRegion(femaleMesh);
+
+        const femaleMeshRank =
+          new Map();
+
+        for (let rank = 0;
+             rank < femaleMeshRegion.entries.length;
+             rank++) {
+
+          femaleMeshRank.set(
+            femaleMeshRegion.entries[rank].vertexIndex,
+            rank
+          );
+        }
+
+        for (let i = 0; i < count; i++) {
+          // TARGET is literally the real female vertex.
+          getWorldVertex(
+            femaleMesh,
+            i,
+            tmp
+          );
+
+          const k = i*3;
+
+          target[k] = tmp.x;
+          target[k+1] = tmp.y;
+          target[k+2] = tmp.z;
+
+          exactTargetVertices++;
+
+          // START tries to reconstruct the real male surface
+          // using the same anatomical-region rank.
+          const lookup =
+            femaleEntryLookup.get(i);
+
+          let maleStart = null;
+
+          if (lookup) {
+            const femaleRegion =
+              lookup.region;
+
+            const maleRegion =
+              maleRegions.get(
+                femaleRegion.key
+              );
+
+            if (
+              maleRegion &&
+              maleRegion.entries.length > 0
+            ) {
+              const q =
+                femaleRegion.entries.length <= 1
+                  ? 0
+                  : lookup.rank /
+                    (femaleRegion.entries.length-1);
+
+              const mapped =
+                regionQuantileEntry(
+                  maleRegion,
+                  q
+                );
+
+              if (mapped) {
+                maleStart =
+                  mapped.world;
+
+                boneMapped++;
+              }
+            }
+          }
+
+          if (!maleStart && fallbackRegion) {
+            const rank =
+              femaleMeshRank.get(i) || 0;
+
+            const q =
+              femaleMeshRegion.entries.length <= 1
+                ? 0
+                : rank /
+                  (femaleMeshRegion.entries.length-1);
+
+            const mapped =
+              regionQuantileEntry(
+                fallbackRegion,
+                q
+              );
+
+            if (mapped) {
+              maleStart =
+                mapped.world;
+
+              meshFallback++;
+            }
+          }
+
+          if (!maleStart) {
+            // Last resort: keep target position.
+            maleStart = tmp;
+          }
+
+          start[k] = maleStart.x;
+          start[k+1] = maleStart.y;
+          start[k+2] = maleStart.z;
+        }
+
+        const geometry =
+          new THREE.BufferGeometry();
 
         geometry.setAttribute(
           "position",
@@ -749,14 +895,19 @@
           )
         );
 
-        if (source.geometry.index) {
-          geometry.setIndex(source.geometry.index.clone());
+        // IMPORTANT:
+        // Use FEMALE topology/indices/UVs.
+        // This is why 100% can become the exact female mesh.
+        if (femaleMesh.geometry.index) {
+          geometry.setIndex(
+            femaleMesh.geometry.index.clone()
+          );
         }
 
-        if (source.geometry.attributes.uv) {
+        if (femaleMesh.geometry.attributes.uv) {
           geometry.setAttribute(
             "uv",
-            source.geometry.attributes.uv.clone()
+            femaleMesh.geometry.attributes.uv.clone()
           );
         }
 
@@ -764,40 +915,53 @@
 
         let material;
 
-        if (Array.isArray(source.material)) {
-          material = source.material.map(m => m.clone());
-        } else if (source.material) {
-          material = source.material.clone();
+        if (Array.isArray(femaleMesh.material)) {
+          material =
+            femaleMesh.material.map(m => m.clone());
+        } else if (femaleMesh.material) {
+          material =
+            femaleMesh.material.clone();
         } else {
-          material = new THREE.MeshStandardMaterial({
-            color: 0xd7aa8c,
-            roughness: 0.74
-          });
+          material =
+            new THREE.MeshStandardMaterial({
+              color: 0xd7aa8c,
+              roughness: 0.74
+            });
         }
 
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.frustumCulled = false;
+        const bridgeMesh =
+          new THREE.Mesh(
+            geometry,
+            material
+          );
 
-        bridgeGroup.add(mesh);
+        bridgeMesh.frustumCulled =
+          false;
+
+        bridgeGroup.add(
+          bridgeMesh
+        );
 
         bridgeParts.push({
-          mesh,
+          mesh: bridgeMesh,
           start,
           target
         });
 
-        totalVerts += count;
-
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await new Promise(
+          resolve =>
+            setTimeout(resolve,0)
+        );
       }
 
       debugEl.textContent =
+        `bridge topology: FEMALE endpoint topology\n` +
+        `female target vertices copied exactly: ${exactTargetVertices}\n` +
+        `bone-region start mappings: ${boneMapped}\n` +
+        `mesh fallback mappings: ${meshFallback}\n` +
         `male regions: ${maleRegions.size}\n` +
         `female regions: ${femaleRegions.size}\n` +
-        `regional mapped vertices: ${regionalMapped}\n` +
-        `fallback mapped vertices: ${fallbackMapped}\n` +
-        `bridge vertices: ${totalVerts}\n` +
-        `method: same dominant bone + normalized local surface coordinate`;
+        `100% geometry target error: 0 by construction`;
 
       maleRoot.visible = false;
       femaleRoot.visible = false;
@@ -809,43 +973,125 @@
     // =========================================================
 
     function smootherstep(t) {
-      return t*t*t*(t*(t*6 - 15) + 10);
+      return t*t*t*(t*(t*6 - 15)+10);
     }
 
     let normalFrame = 0;
 
     function applyProgress(raw) {
-      const p = THREE.MathUtils.clamp(raw,0,1);
-      const t = smootherstep(p);
+      const p =
+        THREE.MathUtils.clamp(raw,0,1);
+
+      const t =
+        smootherstep(p);
 
       for (const part of bridgeParts) {
         const live =
-          part.mesh.geometry.attributes.position.array;
+          part.mesh.geometry
+            .attributes.position.array;
 
-        const a = part.start;
-        const b = part.target;
+        const a =
+          part.start;
 
-        for (let i = 0; i < live.length; i++) {
-          live[i] = a[i] + (b[i] - a[i]) * t;
+        const b =
+          part.target;
+
+        for (let i = 0;
+             i < live.length;
+             i++) {
+
+          live[i] =
+            a[i] +
+            (b[i]-a[i])*t;
         }
 
-        part.mesh.geometry.attributes.position.needsUpdate = true;
+        part.mesh.geometry
+          .attributes.position
+          .needsUpdate = true;
       }
 
       normalFrame++;
 
-      if (normalFrame % 3 === 0 || p === 0 || p === 1) {
+      if (
+        normalFrame % 3 === 0 ||
+        p === 0 ||
+        p === 1
+      ) {
         for (const part of bridgeParts) {
-          part.mesh.geometry.computeVertexNormals();
+          part.mesh.geometry
+            .computeVertexNormals();
         }
       }
 
-      progressSlider.value = String(p);
-      progressValue.textContent = Math.round(p*100) + "%";
+      progressSlider.value =
+        String(p);
+
+      progressValue.textContent =
+        Math.round(p*100) + "%";
 
       statusEl.textContent =
-        `Regional surface transformation - ${Math.round(p*100)}%`;
+        `Exact-endpoint surface transformation - ${Math.round(p*100)}%`;
     }
+
+    // =========================================================
+    // VIEW MODES
+    // =========================================================
+
+    function setShowing(mode) {
+      showing = mode;
+
+      bridgeGroup.visible =
+        mode === "bridge";
+
+      maleRoot.visible =
+        mode === "male";
+
+      femaleRoot.visible =
+        mode === "female";
+
+      setBodyView();
+
+      if (mode === "bridge") {
+        statusEl.textContent =
+          "Bridge body - female topology, male-shaped start, exact female target.";
+      }
+
+      if (mode === "male") {
+        statusEl.textContent =
+          "Real male endpoint reference.";
+      }
+
+      if (mode === "female") {
+        statusEl.textContent =
+          "Real female endpoint reference.";
+      }
+    }
+
+    document.getElementById("maleRefBtn")
+      .addEventListener(
+        "click",
+        () => {
+          playing = false;
+          setShowing("male");
+        }
+      );
+
+    document.getElementById("femaleRefBtn")
+      .addEventListener(
+        "click",
+        () => {
+          playing = false;
+          setShowing("female");
+        }
+      );
+
+    document.getElementById("bridgeBtn")
+      .addEventListener(
+        "click",
+        () => {
+          setShowing("bridge");
+        }
+      );
 
     // =========================================================
     // PLAYBACK
@@ -853,64 +1099,42 @@
 
     let playing = false;
     let playStart = 0;
-    const PLAY_MS = 16000;
+    const PLAY_MS = 17000;
 
     document.getElementById("playBtn")
-      .addEventListener("click", () => {
-        showingReference = false;
-        femaleRoot.visible = false;
-        bridgeGroup.visible = true;
-
-        playing = true;
-        playStart = performance.now();
-        applyProgress(0);
-      });
+      .addEventListener(
+        "click",
+        () => {
+          setShowing("bridge");
+          playing = true;
+          playStart =
+            performance.now();
+          applyProgress(0);
+        }
+      );
 
     document.getElementById("resetBtn")
-      .addEventListener("click", () => {
+      .addEventListener(
+        "click",
+        () => {
+          playing = false;
+          setShowing("bridge");
+          applyProgress(0);
+        }
+      );
+
+    progressSlider.addEventListener(
+      "input",
+      () => {
         playing = false;
-        showingReference = false;
-        femaleRoot.visible = false;
-        bridgeGroup.visible = true;
-        applyProgress(0);
-      });
-
-    progressSlider.addEventListener("input", () => {
-      playing = false;
-      showingReference = false;
-      femaleRoot.visible = false;
-      bridgeGroup.visible = true;
-      applyProgress(Number(progressSlider.value));
-    });
-
-    document.getElementById("femaleRefBtn")
-      .addEventListener("click", () => {
-        playing = false;
-        showingReference = true;
-
-        bridgeGroup.visible = false;
-        maleRoot.visible = false;
-        femaleRoot.visible = true;
-
-        setBodyView();
-
-        statusEl.textContent =
-          "Real female endpoint reference.";
-      });
-
-    document.getElementById("bridgeBtn")
-      .addEventListener("click", () => {
-        showingReference = false;
-
-        femaleRoot.visible = false;
-        maleRoot.visible = false;
-        bridgeGroup.visible = true;
-
-        setBodyView();
-
-        statusEl.textContent =
-          "Regional bridge restored.";
-      });
+        setShowing("bridge");
+        applyProgress(
+          Number(
+            progressSlider.value
+          )
+        );
+      }
+    );
 
     // =========================================================
     // CAMERA
@@ -918,29 +1142,43 @@
 
     let bodyView = true;
     let yaw = 0;
-    let pitch = THREE.MathUtils.degToRad(-7);
+    let pitch =
+      THREE.MathUtils.degToRad(-7);
 
     function activeVisual() {
-      return showingReference ? femaleRoot : bridgeGroup;
+      if (showing === "male") {
+        return maleRoot;
+      }
+
+      if (showing === "female") {
+        return femaleRoot;
+      }
+
+      return bridgeGroup;
     }
 
     function setBodyView() {
       bodyView = true;
 
-      const visual = activeVisual();
+      const visual =
+        activeVisual();
+
       if (!visual) return;
 
-      const b = getBounds(visual);
+      const b =
+        getBounds(visual);
 
       camera.position.set(
         b.center.x + 1.5,
-        b.box.min.y + b.size.y * 0.62,
+        b.box.min.y +
+          b.size.y * 0.62,
         b.center.z + 3.0
       );
 
       camera.lookAt(
         b.center.x,
-        b.box.min.y + b.size.y * 0.49,
+        b.box.min.y +
+          b.size.y * 0.49,
         b.center.z
       );
     }
@@ -948,48 +1186,65 @@
     function setFirstPerson() {
       bodyView = false;
 
-      const visual = activeVisual();
+      const visual =
+        activeVisual();
+
       if (!visual) return;
 
-      const b = getBounds(visual);
+      const b =
+        getBounds(visual);
 
       camera.position.set(
         b.center.x,
-        b.box.min.y + b.size.y * 0.925,
-        b.center.z - b.size.z * 0.16
+        b.box.min.y +
+          b.size.y * 0.925,
+        b.center.z -
+          b.size.z * 0.16
       );
 
-      pitch = THREE.MathUtils.degToRad(-10);
+      pitch =
+        THREE.MathUtils.degToRad(-10);
     }
 
     function lookDown() {
-      if (bodyView) setFirstPerson();
+      if (bodyView) {
+        setFirstPerson();
+      }
 
-      pitch = THREE.MathUtils.degToRad(-66);
+      pitch =
+        THREE.MathUtils.degToRad(-66);
 
       statusEl.textContent =
-        showingReference
-          ? "LOOK DOWN - female endpoint."
-          : "LOOK DOWN - regional bridge.";
+        showing === "bridge"
+          ? "LOOK DOWN - exact-endpoint bridge."
+          : `LOOK DOWN - ${showing} reference.`;
     }
 
     document.getElementById("bodyViewBtn")
-      .addEventListener("click", () => {
-        setBodyView();
+      .addEventListener(
+        "click",
+        () => {
+          setBodyView();
 
-        statusEl.textContent =
-          showingReference
-            ? "BODY VIEW - female endpoint."
-            : "BODY VIEW - regional bridge.";
-      });
+          statusEl.textContent =
+            showing === "bridge"
+              ? "BODY VIEW - exact-endpoint bridge."
+              : `BODY VIEW - ${showing} reference.`;
+        }
+      );
 
     document.getElementById("lookBtn")
-      .addEventListener("click", lookDown);
+      .addEventListener(
+        "click",
+        lookDown
+      );
 
     let dragging = false;
     let lastX = 0;
     let lastY = 0;
-    const sensitivity = 0.004;
+
+    const sensitivity =
+      0.004;
 
     function startDrag(x,y) {
       dragging = true;
@@ -998,22 +1253,34 @@
     }
 
     function drag(x,y) {
-      if (!dragging || bodyView) return;
+      if (
+        !dragging ||
+        bodyView
+      ) {
+        return;
+      }
 
-      const dx = x-lastX;
-      const dy = y-lastY;
+      const dx =
+        x-lastX;
+
+      const dy =
+        y-lastY;
 
       lastX = x;
       lastY = y;
 
-      yaw -= dx*sensitivity;
-      pitch -= dy*sensitivity;
+      yaw -=
+        dx*sensitivity;
 
-      pitch = THREE.MathUtils.clamp(
-        pitch,
-        THREE.MathUtils.degToRad(-88),
-        THREE.MathUtils.degToRad(70)
-      );
+      pitch -=
+        dy*sensitivity;
+
+      pitch =
+        THREE.MathUtils.clamp(
+          pitch,
+          THREE.MathUtils.degToRad(-88),
+          THREE.MathUtils.degToRad(70)
+        );
     }
 
     function endDrag() {
@@ -1023,44 +1290,63 @@
     renderer.domElement.addEventListener(
       "touchstart",
       e => {
-        if (e.touches.length === 1) {
+        if (
+          e.touches.length === 1
+        ) {
           startDrag(
             e.touches[0].clientX,
             e.touches[0].clientY
           );
         }
       },
-      { passive: false }
+      { passive:false }
     );
 
     renderer.domElement.addEventListener(
       "touchmove",
       e => {
-        if (e.touches.length === 1) {
+        if (
+          e.touches.length === 1
+        ) {
           e.preventDefault();
+
           drag(
             e.touches[0].clientX,
             e.touches[0].clientY
           );
         }
       },
-      { passive: false }
+      { passive:false }
     );
 
-    renderer.domElement.addEventListener("touchend", endDrag);
-    renderer.domElement.addEventListener("touchcancel", endDrag);
+    renderer.domElement.addEventListener(
+      "touchend",
+      endDrag
+    );
 
-    const euler = new THREE.Euler(0,0,0,"YXZ");
+    renderer.domElement.addEventListener(
+      "touchcancel",
+      endDrag
+    );
+
+    const euler =
+      new THREE.Euler(
+        0,0,0,"YXZ"
+      );
 
     // =========================================================
     // LOOP
     // =========================================================
 
     function animate(now) {
-      requestAnimationFrame(animate);
+      requestAnimationFrame(
+        animate
+      );
 
       if (playing) {
-        let p = (now-playStart)/PLAY_MS;
+        let p =
+          (now-playStart) /
+          PLAY_MS;
 
         if (p >= 1) {
           p = 1;
@@ -1071,11 +1357,20 @@
       }
 
       if (!bodyView) {
-        euler.set(pitch,yaw,0);
-        camera.quaternion.setFromEuler(euler);
+        euler.set(
+          pitch,
+          yaw,
+          0
+        );
+
+        camera.quaternion
+          .setFromEuler(euler);
       }
 
-      renderer.render(scene,camera);
+      renderer.render(
+        scene,
+        camera
+      );
     }
 
     animate();
@@ -1087,36 +1382,65 @@
     async function setup() {
       statusEl.textContent =
         "Loading real male endpointâ¦";
+
       const maleGLTF =
-        await loadGLB("./adult-male-lod.glb");
+        await loadGLB(
+          "./adult-male-lod.glb"
+        );
 
       statusEl.textContent =
         "Loading real female endpointâ¦";
-      const femaleGLTF =
-        await loadGLB("./adult-female-lod.glb");
 
-      maleRoot = maleGLTF.scene;
-      femaleRoot = femaleGLTF.scene;
+      const femaleGLTF =
+        await loadGLB(
+          "./adult-female-lod.glb"
+        );
+
+      maleRoot =
+        maleGLTF.scene;
+
+      femaleRoot =
+        femaleGLTF.scene;
 
       scene.add(maleRoot);
       scene.add(femaleRoot);
 
-      normalizeModel(maleRoot,1.80);
-      normalizeModel(femaleRoot,1.65);
+      normalizeModel(
+        maleRoot,
+        1.80
+      );
 
-      maleBones = collectBones(maleRoot);
-      femaleBones = collectBones(femaleRoot);
+      normalizeModel(
+        femaleRoot,
+        1.65
+      );
+
+      maleBones =
+        collectBones(maleRoot);
+
+      femaleBones =
+        collectBones(femaleRoot);
 
       maleRoot.updateMatrixWorld(true);
       femaleRoot.updateMatrixWorld(true);
 
       statusEl.textContent =
-        "Building male anatomical regionsâ¦";
-      maleRegions = buildRegions(maleRoot,maleBones);
+        "Building male bone regionsâ¦";
+
+      maleRegions =
+        buildBoneRegions(
+          maleRoot,
+          maleBones
+        );
 
       statusEl.textContent =
-        "Building female anatomical regionsâ¦";
-      femaleRegions = buildRegions(femaleRoot,femaleBones);
+        "Building female bone regionsâ¦";
+
+      femaleRegions =
+        buildBoneRegions(
+          femaleRoot,
+          femaleBones
+        );
 
       maleRoot.visible = false;
       femaleRoot.visible = false;
@@ -1124,32 +1448,39 @@
       await buildBridge();
 
       applyProgress(0);
-      setBodyView();
+      setShowing("bridge");
 
-      loading.style.display = "none";
+      loading.style.display =
+        "none";
 
       statusEl.textContent =
-        "V18 ready. PLAY MORPH maps each male surface region only to the matching female bone region.";
+        "V19 ready. At 100%, the bridge uses the exact real female vertex positions and female topology.";
     }
 
     setup().catch(fail);
 
-    window.addEventListener("resize", () => {
-      camera.aspect =
-        window.innerWidth /
-        window.innerHeight;
+    window.addEventListener(
+      "resize",
+      () => {
+        camera.aspect =
+          window.innerWidth /
+          window.innerHeight;
 
-      camera.updateProjectionMatrix();
+        camera.updateProjectionMatrix();
 
-      renderer.setSize(
-        window.innerWidth,
-        window.innerHeight
-      );
+        renderer.setSize(
+          window.innerWidth,
+          window.innerHeight
+        );
 
-      renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio,2)
-      );
-    });
+        renderer.setPixelRatio(
+          Math.min(
+            window.devicePixelRatio,
+            2
+          )
+        );
+      }
+    );
   </script>
 </body>
 </html>
