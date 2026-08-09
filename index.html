@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game V14 - Compatibility Inspector</title>
+  <title>Transformation Game V15 - Rig Morph Prototype</title>
 
   <style>
     * {
@@ -43,7 +43,7 @@
     }
 
     .panel {
-      max-width: 680px;
+      max-width: 620px;
       margin: auto;
       padding: 11px 13px;
       border-radius: 17px;
@@ -66,10 +66,9 @@
     }
 
     .debug {
-      margin-top: 5px;
+      margin-top: 4px;
       font-size: 10px;
-      line-height: 1.35;
-      opacity: 0.78;
+      opacity: 0.72;
       white-space: pre-line;
     }
 
@@ -79,7 +78,7 @@
       right: 8px;
       bottom: calc(env(safe-area-inset-bottom) + 8px);
       z-index: 30;
-      max-height: 43vh;
+      max-height: 44vh;
       overflow: auto;
       border-radius: 18px;
       background: rgba(12,14,18,0.92);
@@ -98,36 +97,35 @@
       border: 0;
       border-radius: 13px;
       padding: 10px 11px;
-      min-width: 98px;
+      min-width: 96px;
       color: #111;
       background: rgba(255,255,255,0.94);
       font-size: 12px;
       font-weight: 800;
     }
 
-    button:active {
-      transform: scale(0.97);
-    }
-
-    .section {
-      color: white;
+    .controlRow {
+      padding: 9px 2px;
       border-top: 1px solid rgba(255,255,255,0.09);
-      padding-top: 9px;
-      margin-top: 9px;
     }
 
-    .section h3 {
-      margin: 0 0 5px 0;
+    .labelLine {
+      display: flex;
+      justify-content: space-between;
+      color: white;
       font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 5px;
     }
 
-    .mono {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 10px;
-      line-height: 1.35;
-      white-space: pre-wrap;
-      word-break: break-word;
-      opacity: 0.9;
+    .value {
+      opacity: 0.8;
+      min-width: 44px;
+      text-align: right;
+    }
+
+    input[type="range"] {
+      width: 100%;
     }
 
     #loading {
@@ -164,38 +162,31 @@
 
 <body>
   <div id="game"></div>
-  <div id="loading">Loading V14 compatibility inspectorâ¦</div>
+  <div id="loading">Loading V15 rig-morph prototypeâ¦</div>
   <div id="fatal"></div>
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game â V14 Male/Female Compatibility Inspector</div>
-      <div id="status" class="status">Loading both real human modelsâ¦</div>
+      <div class="title">Transformation Game â V15 Shared-Rig Morph Prototype</div>
+      <div id="status" class="status">Loading male and female rigsâ¦</div>
       <div id="debug" class="debug"></div>
     </div>
   </div>
 
   <div id="controls">
     <div id="buttons">
-      <button id="maleBtn">SHOW MALE</button>
-      <button id="femaleBtn">SHOW FEMALE</button>
       <button id="bodyViewBtn">BODY VIEW</button>
       <button id="lookBtn">LOOK DOWN</button>
+      <button id="resetBtn">RESET</button>
+      <button id="playBtn">PLAY RIG MORPH</button>
     </div>
 
-    <div class="section">
-      <h3>COMPATIBILITY SUMMARY</h3>
-      <div id="summary" class="mono">Waitingâ¦</div>
-    </div>
-
-    <div class="section">
-      <h3>MALE MODEL</h3>
-      <div id="maleInfo" class="mono">Waitingâ¦</div>
-    </div>
-
-    <div class="section">
-      <h3>FEMALE MODEL</h3>
-      <div id="femaleInfo" class="mono">Waitingâ¦</div>
+    <div class="controlRow">
+      <div class="labelLine">
+        <span>RIG TRANSFORMATION</span>
+        <span id="progressValue" class="value">0%</span>
+      </div>
+      <input id="progressSlider" type="range" min="0" max="1" step="0.001" value="0">
     </div>
   </div>
 
@@ -216,17 +207,15 @@
     const fatal = document.getElementById("fatal");
     const statusEl = document.getElementById("status");
     const debugEl = document.getElementById("debug");
-
-    const summaryEl = document.getElementById("summary");
-    const maleInfoEl = document.getElementById("maleInfo");
-    const femaleInfoEl = document.getElementById("femaleInfo");
+    const progressSlider = document.getElementById("progressSlider");
+    const progressValue = document.getElementById("progressValue");
 
     function fail(error) {
       console.error(error);
       loading.style.display = "none";
       fatal.style.display = "block";
       fatal.textContent =
-        "V14 ERROR\n\n" +
+        "V15 ERROR\n\n" +
         (error?.stack || error?.message || String(error)) +
         "\n\nSend me a screenshot of this red box.";
     }
@@ -288,7 +277,6 @@
         new THREE.BoxGeometry(1,1,1),
         new THREE.MeshStandardMaterial({ color, roughness: 0.88 })
       );
-
       mesh.position.set(x,y,z);
       mesh.scale.set(sx,sy,sz);
       scene.add(mesh);
@@ -299,7 +287,7 @@
     roomBox(5, 1.5, -1, 0.2, 3, 10, 0xd8dde1);
 
     // =========================================================
-    // LOADERS + HELPERS
+    // LOADING
     // =========================================================
 
     const loader = new GLTFLoader();
@@ -312,24 +300,16 @@
 
     function getBounds(root) {
       root.updateMatrixWorld(true);
-
       const box = new THREE.Box3().setFromObject(root);
       const size = new THREE.Vector3();
       const center = new THREE.Vector3();
-
       box.getSize(size);
       box.getCenter(center);
-
       return { box, size, center };
     }
 
     function normalizeModel(root, targetHeight) {
       let b = getBounds(root);
-
-      if (!isFinite(b.size.y) || b.size.y <= 0.001) {
-        throw new Error("Invalid model bounds.");
-      }
-
       const scale = targetHeight / b.size.y;
       root.scale.multiplyScalar(scale);
       root.updateMatrixWorld(true);
@@ -339,216 +319,51 @@
       root.position.x -= b.center.x;
       root.position.z -= b.center.z;
       root.position.y -= b.box.min.y;
-
       root.updateMatrixWorld(true);
-
-      return getBounds(root);
     }
 
-    function unique(arr) {
-      return [...new Set(arr)];
-    }
+    // =========================================================
+    // RIG MAPS
+    // =========================================================
 
-    function inspectModel(root) {
-      const meshes = [];
-      const bones = [];
-      const skins = [];
-      const morphNames = [];
-      const nodeNames = [];
+    function collectBones(root) {
+      const map = new Map();
 
       root.traverse(obj => {
-        if (obj.name) nodeNames.push(obj.name);
-
-        if (obj.isBone) {
-          bones.push(obj.name || "(unnamed bone)");
-        }
-
-        if (obj.isMesh || obj.isSkinnedMesh) {
-          const g = obj.geometry;
-          const pos = g?.attributes?.position;
-          const normal = g?.attributes?.normal;
-          const uv = g?.attributes?.uv;
-          const indexCount = g?.index?.count || 0;
-
-          const dict = obj.morphTargetDictionary || {};
-
-          meshes.push({
-            name: obj.name || "(unnamed mesh)",
-            skinned: !!obj.isSkinnedMesh,
-            vertices: pos?.count || 0,
-            indices: indexCount,
-            normals: normal?.count || 0,
-            uvs: uv?.count || 0,
-            morphCount: Object.keys(dict).length,
-            morphNames: Object.keys(dict)
-          });
-
-          morphNames.push(...Object.keys(dict));
-
-          if (obj.isSkinnedMesh && obj.skeleton) {
-            skins.push({
-              mesh: obj.name || "(unnamed mesh)",
-              boneCount: obj.skeleton.bones.length,
-              boneNames: obj.skeleton.bones.map(b => b.name || "(unnamed)")
-            });
-          }
+        if (obj.isBone && obj.name) {
+          map.set(obj.name, obj);
         }
       });
 
-      const b = getBounds(root);
+      return map;
+    }
 
+    function cloneTransform(bone) {
       return {
-        bounds: {
-          width: b.size.x,
-          height: b.size.y,
-          depth: b.size.z
-        },
-        meshes,
-        meshCount: meshes.length,
-        totalVertices: meshes.reduce((n,m) => n + m.vertices, 0),
-        totalIndices: meshes.reduce((n,m) => n + m.indices, 0),
-        boneNames: unique(bones),
-        boneCount: unique(bones).length,
-        skins,
-        morphNames: unique(morphNames),
-        morphCount: unique(morphNames).length,
-        nodeNames: unique(nodeNames)
+        position: bone.position.clone(),
+        quaternion: bone.quaternion.clone(),
+        scale: bone.scale.clone()
       };
     }
 
-    function summarizeModel(label, info) {
-      const lines = [];
+    function collectRestTransforms(boneMap) {
+      const out = new Map();
 
-      lines.push(`${label} dimensions`);
-      lines.push(
-        `W ${info.bounds.width.toFixed(3)} â¢ H ${info.bounds.height.toFixed(3)} â¢ D ${info.bounds.depth.toFixed(3)}`
-      );
-
-      lines.push(
-        `meshes ${info.meshCount} â¢ vertices ${info.totalVertices} â¢ indices ${info.totalIndices}`
-      );
-
-      lines.push(
-        `unique bones ${info.boneCount} â¢ unique morph names ${info.morphCount}`
-      );
-
-      lines.push("");
-      lines.push("meshes:");
-
-      for (const mesh of info.meshes) {
-        lines.push(
-          `- ${mesh.name} | verts ${mesh.vertices} | idx ${mesh.indices} | skinned ${mesh.skinned ? "yes" : "no"} | morphs ${mesh.morphCount}`
-        );
-
-        if (mesh.morphNames.length) {
-          lines.push(`  morphs: ${mesh.morphNames.join(", ")}`);
-        }
+      for (const [name, bone] of boneMap) {
+        out.set(name, cloneTransform(bone));
       }
 
-      lines.push("");
-      lines.push("bones:");
-      lines.push(info.boneNames.join(", ") || "(none)");
-
-      return lines.join("\n");
+      return out;
     }
 
-    function arrayIntersection(a, b) {
-      const bSet = new Set(b);
-      return a.filter(x => bSet.has(x));
+    function lerpTransform(targetBone, a, b, t) {
+      targetBone.position.lerpVectors(a.position, b.position, t);
+      THREE.Quaternion.slerp(a.quaternion, b.quaternion, targetBone.quaternion, t);
+      targetBone.scale.lerpVectors(a.scale, b.scale, t);
     }
 
-    function sortedCopy(arr) {
-      return [...arr].sort();
-    }
-
-    function sameArray(a, b) {
-      if (a.length !== b.length) return false;
-      for (let i = 0; i < a.length; i++) {
-        if (a[i] !== b[i]) return false;
-      }
-      return true;
-    }
-
-    function meshSignature(mesh) {
-      return [
-        mesh.vertices,
-        mesh.indices,
-        mesh.normals,
-        mesh.uvs
-      ].join(":");
-    }
-
-    function compareModels(male, female) {
-      const maleBoneNames = sortedCopy(male.boneNames);
-      const femaleBoneNames = sortedCopy(female.boneNames);
-
-      const commonBones = arrayIntersection(
-        maleBoneNames,
-        femaleBoneNames
-      );
-
-      const exactBoneNameMatch =
-        sameArray(maleBoneNames, femaleBoneNames);
-
-      const maleMeshSigs = male.meshes.map(meshSignature).sort();
-      const femaleMeshSigs = female.meshes.map(meshSignature).sort();
-
-      const exactMeshStructureMatch =
-        sameArray(maleMeshSigs, femaleMeshSigs);
-
-      const paired = [];
-      const count = Math.max(male.meshes.length, female.meshes.length);
-
-      for (let i = 0; i < count; i++) {
-        const m = male.meshes[i];
-        const f = female.meshes[i];
-
-        paired.push({
-          index: i,
-          male: m || null,
-          female: f || null,
-          sameVertices: !!m && !!f && m.vertices === f.vertices,
-          sameIndices: !!m && !!f && m.indices === f.indices
-        });
-      }
-
-      const allPairedTopologyMatch =
-        male.meshes.length === female.meshes.length &&
-        paired.every(x => x.sameVertices && x.sameIndices);
-
-      const commonMorphNames = arrayIntersection(
-        male.morphNames,
-        female.morphNames
-      );
-
-      const likelySameRig =
-        exactBoneNameMatch &&
-        male.boneCount > 0 &&
-        female.boneCount > 0;
-
-      let route;
-
-      if (allPairedTopologyMatch) {
-        route =
-          "ROUTE A: direct vertex interpolation is plausible. We can build a true male-to-female morph from the real endpoint meshes.";
-      } else if (likelySameRig) {
-        route =
-          "ROUTE B: meshes differ, but the skeleton appears shared. Best path is a rig-driven intermediate body plus retargeted surface deformation.";
-      } else {
-        route =
-          "ROUTE C: both topology and rig differ. We need a shared-topology bridge model for a seamless physical morph.";
-      }
-
-      return {
-        exactBoneNameMatch,
-        commonBones,
-        likelySameRig,
-        exactMeshStructureMatch,
-        allPairedTopologyMatch,
-        paired,
-        commonMorphNames,
-        route
-      };
+    function smoothstep(t) {
+      return t * t * (3 - 2 * t);
     }
 
     // =========================================================
@@ -557,40 +372,115 @@
 
     let maleRoot;
     let femaleRoot;
-    let maleInfo;
-    let femaleInfo;
-    let comparison;
 
+    let maleBones;
+    let femaleBones;
+
+    let maleRest;
+    let femaleRest;
+
+    let sharedBoneNames = [];
+
+    // We will DISPLAY ONLY the male mesh for this prototype.
+    // Its real shared skeleton is gradually moved toward the female rig.
+    //
+    // That lets us physically test how far rig deformation alone can take
+    // the male endpoint mesh before we build the surface bridge.
     let activeRoot;
-    let current = "male";
 
-    function showMale() {
-      current = "male";
-      maleRoot.visible = true;
-      femaleRoot.visible = false;
-      activeRoot = maleRoot;
+    function setFemaleMorphInfluence(p) {
+      if (!femaleRoot) return;
 
-      statusEl.textContent = "Showing real male endpoint model.";
-      if (bodyView) setBodyView();
-      else setFirstPerson();
+      femaleRoot.traverse(obj => {
+        if (!obj.isMesh && !obj.isSkinnedMesh) return;
+        if (!obj.morphTargetDictionary || !obj.morphTargetInfluences) return;
+
+        for (const [name, idx] of Object.entries(obj.morphTargetDictionary)) {
+          const n = name.toLowerCase();
+
+          // During the final third, gently introduce body-shape morphs
+          // on the hidden female reference model so we can later use
+          // the same timing when we build the surface bridge.
+          if (n.includes("skinny")) {
+            obj.morphTargetInfluences[idx] = THREE.MathUtils.lerp(0.15, -0.10, p);
+          } else if (n.includes("muscular")) {
+            obj.morphTargetInfluences[idx] = THREE.MathUtils.lerp(0.12, 0.08, p);
+          } else if (n.includes("obese")) {
+            obj.morphTargetInfluences[idx] = THREE.MathUtils.lerp(-0.12, 0.20, p);
+          }
+        }
+      });
     }
 
-    function showFemale() {
-      current = "female";
-      maleRoot.visible = false;
-      femaleRoot.visible = true;
-      activeRoot = femaleRoot;
+    function applyRigProgress(raw) {
+      const t = smoothstep(THREE.MathUtils.clamp(raw, 0, 1));
 
-      statusEl.textContent = "Showing real female endpoint model.";
-      if (bodyView) setBodyView();
-      else setFirstPerson();
+      for (const name of sharedBoneNames) {
+        const maleBone = maleBones.get(name);
+        const a = maleRest.get(name);
+        const b = femaleRest.get(name);
+
+        if (!maleBone || !a || !b) continue;
+
+        lerpTransform(maleBone, a, b, t);
+      }
+
+      // Global body height eases from male-normalized 1.80 to female-normalized 1.65.
+      // We use Y scale only on the displayed model root, keeping X/Z untouched.
+      const yScale = THREE.MathUtils.lerp(1.0, 1.65 / 1.80, t);
+      maleRoot.scale.y = maleRoot.userData.baseScaleY * yScale;
+
+      setFemaleMorphInfluence(t);
+
+      progressSlider.value = String(raw);
+      progressValue.textContent = Math.round(raw * 100) + "%";
+
+      statusEl.textContent =
+        `Shared-rig transformation â ${Math.round(raw * 100)}%`;
     }
 
-    document.getElementById("maleBtn")
-      .addEventListener("click", showMale);
+    function resetRig() {
+      playing = false;
 
-    document.getElementById("femaleBtn")
-      .addEventListener("click", showFemale);
+      for (const name of sharedBoneNames) {
+        const bone = maleBones.get(name);
+        const a = maleRest.get(name);
+        if (!bone || !a) continue;
+
+        bone.position.copy(a.position);
+        bone.quaternion.copy(a.quaternion);
+        bone.scale.copy(a.scale);
+      }
+
+      maleRoot.scale.y = maleRoot.userData.baseScaleY;
+
+      progressSlider.value = "0";
+      progressValue.textContent = "0%";
+      statusEl.textContent = "Rig reset to real male endpoint.";
+    }
+
+    progressSlider.addEventListener("input", () => {
+      playing = false;
+      applyRigProgress(Number(progressSlider.value));
+    });
+
+    // =========================================================
+    // PLAYBACK
+    // =========================================================
+
+    let playing = false;
+    let playStart = 0;
+    const PLAY_MS = 12000;
+
+    document.getElementById("playBtn")
+      .addEventListener("click", () => {
+        playing = true;
+        playStart = performance.now();
+        applyRigProgress(0);
+      });
+
+    document.getElementById("resetBtn")
+      .addEventListener("click", resetRig);
 
     // =========================================================
     // CAMERA
@@ -618,8 +508,7 @@
         b.center.z
       );
 
-      statusEl.textContent =
-        `BODY VIEW â ${current} endpoint model.`;
+      statusEl.textContent = "BODY VIEW â real male mesh, shared-rig deformation.";
     }
 
     function setFirstPerson() {
@@ -635,17 +524,13 @@
       );
 
       pitch = THREE.MathUtils.degToRad(-10);
-
-      statusEl.textContent =
-        `FIRST PERSON â ${current} endpoint model.`;
+      statusEl.textContent = "FIRST PERSON â rig morph active.";
     }
 
     function lookDown() {
       if (bodyView) setFirstPerson();
       pitch = THREE.MathUtils.degToRad(-66);
-
-      statusEl.textContent =
-        `LOOK DOWN â ${current} endpoint model.`;
+      statusEl.textContent = "LOOK DOWN â watch the rigged body deform.";
     }
 
     document.getElementById("bodyViewBtn")
@@ -706,7 +591,6 @@
       e => {
         if (e.touches.length === 1) {
           e.preventDefault();
-
           drag(
             e.touches[0].clientX,
             e.touches[0].clientY
@@ -740,18 +624,30 @@
 
     const euler = new THREE.Euler(0,0,0,"YXZ");
 
-    function animate() {
+    // =========================================================
+    // LOOP
+    // =========================================================
+
+    function animate(now) {
       requestAnimationFrame(animate);
 
-      if (!bodyView && activeRoot) {
-        setHeadVisibility(maleRoot, current !== "male");
-        setHeadVisibility(femaleRoot, current !== "female");
+      if (playing) {
+        let p = (now - playStart) / PLAY_MS;
 
+        if (p >= 1) {
+          p = 1;
+          playing = false;
+        }
+
+        applyRigProgress(p);
+      }
+
+      if (!bodyView && activeRoot) {
+        setHeadVisibility(activeRoot, false);
         euler.set(pitch, yaw, 0);
         camera.quaternion.setFromEuler(euler);
-      } else {
-        if (maleRoot) setHeadVisibility(maleRoot, true);
-        if (femaleRoot) setHeadVisibility(femaleRoot, true);
+      } else if (activeRoot) {
+        setHeadVisibility(activeRoot, true);
       }
 
       renderer.render(scene, camera);
@@ -760,14 +656,14 @@
     animate();
 
     // =========================================================
-    // SETUP + COMPARISON
+    // SETUP
     // =========================================================
 
     async function setup() {
-      statusEl.textContent = "Loading real male modelâ¦";
+      statusEl.textContent = "Loading real male endpointâ¦";
       const maleGLTF = await loadGLB("./adult-male-lod.glb");
 
-      statusEl.textContent = "Loading real female modelâ¦";
+      statusEl.textContent = "Loading real female endpointâ¦";
       const femaleGLTF = await loadGLB("./adult-female-lod.glb");
 
       maleRoot = maleGLTF.scene;
@@ -779,60 +675,42 @@
       normalizeModel(maleRoot, 1.80);
       normalizeModel(femaleRoot, 1.65);
 
-      maleInfo = inspectModel(maleRoot);
-      femaleInfo = inspectModel(femaleRoot);
-      comparison = compareModels(maleInfo, femaleInfo);
+      // Save normalized male root Y scale before animation alters it.
+      maleRoot.userData.baseScaleY = maleRoot.scale.y;
 
-      maleInfoEl.textContent =
-        summarizeModel("MALE", maleInfo);
+      maleBones = collectBones(maleRoot);
+      femaleBones = collectBones(femaleRoot);
 
-      femaleInfoEl.textContent =
-        summarizeModel("FEMALE", femaleInfo);
+      maleRest = collectRestTransforms(maleBones);
+      femaleRest = collectRestTransforms(femaleBones);
 
-      const pairLines = comparison.paired.map(p => {
-        const m = p.male;
-        const f = p.female;
+      sharedBoneNames =
+        [...maleBones.keys()]
+        .filter(name => femaleBones.has(name));
 
-        return [
-          `pair ${p.index + 1}:`,
-          `${m ? `${m.name} (${m.vertices}v/${m.indices}i)` : "missing male"}`,
-          " vs ",
-          `${f ? `${f.name} (${f.vertices}v/${f.indices}i)` : "missing female"}`,
-          ` -> verts ${p.sameVertices ? "MATCH" : "different"}, indices ${p.sameIndices ? "MATCH" : "different"}`
-        ].join("");
-      });
+      if (sharedBoneNames.length === 0) {
+        throw new Error("No shared bone names found.");
+      }
 
-      summaryEl.textContent =
-        `same number of meshes: ${maleInfo.meshCount === femaleInfo.meshCount ? "YES" : "NO"}\n` +
-        `all paired vertex/index counts match: ${comparison.allPairedTopologyMatch ? "YES" : "NO"}\n` +
-        `exact sorted mesh structure match: ${comparison.exactMeshStructureMatch ? "YES" : "NO"}\n` +
-        `male unique bones: ${maleInfo.boneCount}\n` +
-        `female unique bones: ${femaleInfo.boneCount}\n` +
-        `exact bone-name set match: ${comparison.exactBoneNameMatch ? "YES" : "NO"}\n` +
-        `common bones: ${comparison.commonBones.length}\n` +
-        `male unique morph names: ${maleInfo.morphCount}\n` +
-        `female unique morph names: ${femaleInfo.morphCount}\n` +
-        `common morph names: ${comparison.commonMorphNames.length}\n\n` +
-        `${comparison.route}\n\n` +
-        pairLines.join("\n");
-
-      debugEl.textContent =
-        `Automatic route decision: ${comparison.route}`;
-
+      // Female is reference-only for now.
       femaleRoot.visible = false;
       maleRoot.visible = true;
       activeRoot = maleRoot;
+
+      debugEl.textContent =
+        `shared bones: ${sharedBoneNames.length}\n` +
+        `male bones: ${maleBones.size}\n` +
+        `female bones: ${femaleBones.size}\n` +
+        `display mesh: male endpoint only`;
 
       setBodyView();
 
       loading.style.display = "none";
 
       statusEl.textContent =
-        "V14 ready. Scroll the compatibility report below.";
+        "V15 ready. PLAY RIG MORPH deforms the real male mesh using the shared female rig.";
 
-      console.log("MALE INSPECTION", maleInfo);
-      console.log("FEMALE INSPECTION", femaleInfo);
-      console.log("COMPARISON", comparison);
+      applyRigProgress(0);
     }
 
     setup().catch(fail);
@@ -840,15 +718,8 @@
     window.addEventListener("resize", () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
-
-      renderer.setSize(
-        window.innerWidth,
-        window.innerHeight
-      );
-
-      renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio, 2)
-      );
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     });
   </script>
 </body>
