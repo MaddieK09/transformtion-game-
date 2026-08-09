@@ -2,190 +2,648 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Transformation Game</title>
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Transformation Game Prototype</title>
 
   <style>
-    html,
-    body {
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
       margin: 0;
       width: 100%;
       height: 100%;
       overflow: hidden;
       background: #111;
-      font-family: Arial, sans-serif;
+      font-family: Arial, Helvetica, sans-serif;
+      touch-action: none;
     }
 
     #game {
+      position: fixed;
+      inset: 0;
+    }
+
+    canvas {
+      display: block;
       width: 100%;
       height: 100%;
     }
 
-    #ui {
+    #hud {
       position: fixed;
-      top: 16px;
-      left: 16px;
-      z-index: 10;
+      top: calc(env(safe-area-inset-top) + 12px);
+      left: 12px;
+      right: 12px;
+      z-index: 20;
+      pointer-events: none;
+    }
 
-      background: rgba(0, 0, 0, 0.55);
-      color: white;
+    .panel {
+      max-width: 430px;
+      margin: 0 auto;
       padding: 12px 14px;
-      border-radius: 14px;
-      backdrop-filter: blur(8px);
+      border-radius: 16px;
+      background: rgba(0, 0, 0, 0.58);
+      color: white;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
     }
 
-    #ui h1 {
-      margin: 0 0 6px;
-      font-size: 18px;
+    .title {
+      font-weight: 800;
+      font-size: 17px;
+      margin-bottom: 7px;
     }
 
-    #ui p {
-      margin: 0;
+    .status {
       font-size: 13px;
-      opacity: 0.8;
+      opacity: 0.9;
+      line-height: 1.35;
+    }
+
+    .bar {
+      margin-top: 9px;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.18);
+      overflow: hidden;
+    }
+
+    #barFill {
+      width: 0%;
+      height: 100%;
+      background: white;
+      border-radius: 999px;
+      transition: width 0.08s linear;
+    }
+
+    #bottomUI {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: calc(env(safe-area-inset-bottom) + 14px);
+      z-index: 30;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 16px;
+      padding: 14px 18px;
+      font-size: 16px;
+      font-weight: 800;
+      color: #111;
+      background: white;
+      min-width: 135px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    }
+
+    button:active {
+      transform: scale(0.97);
+    }
+
+    button.secondary {
+      min-width: 90px;
+      background: rgba(255,255,255,0.84);
+    }
+
+    #hint {
+      position: fixed;
+      bottom: calc(env(safe-area-inset-bottom) + 82px);
+      left: 0;
+      right: 0;
+      text-align: center;
+      color: rgba(255,255,255,0.88);
+      font-size: 13px;
+      z-index: 15;
+      pointer-events: none;
+      text-shadow: 0 2px 5px rgba(0,0,0,0.65);
     }
   </style>
 </head>
 
 <body>
+  <div id="game"></div>
 
-  <div id="ui">
-    <h1>Transformation Game</h1>
-    <p>3D prototype loading...</p>
+  <div id="hud">
+    <div class="panel">
+      <div class="title">First-Person Transformation Prototype</div>
+      <div id="status" class="status">
+        Starter form â drag anywhere to look around. Look down at your body.
+      </div>
+      <div class="bar">
+        <div id="barFill"></div>
+      </div>
+    </div>
   </div>
 
-  <div id="game"></div>
+  <div id="hint">Drag to look â¢ Press Transform â¢ Look down while it happens</div>
+
+  <div id="bottomUI">
+    <button id="transformBtn">TRANSFORM</button>
+    <button id="resetBtn" class="secondary">RESET</button>
+  </div>
 
   <script type="module">
     import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
 
-    const scene = new THREE.Scene();
+    // =========================================================
+    // BASIC THREE.JS SETUP
+    // =========================================================
 
-    scene.background = new THREE.Color(0x87ceeb);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x8fd3f4);
 
     const camera = new THREE.PerspectiveCamera(
-      75,
+      72,
       window.innerWidth / window.innerHeight,
-      0.1,
-      1000
+      0.05,
+      150
     );
-
-    camera.position.set(0, 1.7, 5);
 
     const renderer = new THREE.WebGLRenderer({
-      antialias: true
+      antialias: true,
+      powerPreference: "high-performance"
     });
 
-    renderer.setSize(
-      window.innerWidth,
-      window.innerHeight
-    );
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-    renderer.setPixelRatio(
-      Math.min(window.devicePixelRatio, 2)
-    );
+    document.getElementById("game").appendChild(renderer.domElement);
 
-    document
-      .getElementById("game")
-      .appendChild(renderer.domElement);
+    // =========================================================
+    // WORLD
+    // =========================================================
 
-    const ambientLight =
-      new THREE.HemisphereLight(
-        0xffffff,
-        0x444444,
-        2
-      );
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x58616d, 2.15);
+    scene.add(hemi);
 
-    scene.add(ambientLight);
-
-    const sun =
-      new THREE.DirectionalLight(
-        0xffffff,
-        3
-      );
-
-    sun.position.set(5, 10, 7);
-
+    const sun = new THREE.DirectionalLight(0xffffff, 2.4);
+    sun.position.set(4, 9, 3);
     scene.add(sun);
 
-    const floorGeometry =
-      new THREE.PlaneGeometry(
-        30,
-        30
-      );
-
-    const floorMaterial =
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(60, 60),
       new THREE.MeshStandardMaterial({
-        color: 0x777777
-      });
-
-    const floor =
-      new THREE.Mesh(
-        floorGeometry,
-        floorMaterial
-      );
-
-    floor.rotation.x =
-      -Math.PI / 2;
-
+        color: 0x8c9095,
+        roughness: 0.9
+      })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = 0;
     scene.add(floor);
 
-    const cubeGeometry =
-      new THREE.BoxGeometry(
-        1,
-        1,
-        1
+    // A few objects around the room so height changes are easier to notice.
+    const wallMat = new THREE.MeshStandardMaterial({
+      color: 0xd8dde2,
+      roughness: 0.85
+    });
+
+    function addBox(x, y, z, sx, sy, sz, color = 0xd8dde2) {
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(1,1,1),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.8 })
       );
+      mesh.position.set(x, y, z);
+      mesh.scale.set(sx, sy, sz);
+      scene.add(mesh);
+      return mesh;
+    }
 
-    const cubeMaterial =
-      new THREE.MeshStandardMaterial({
-        color: 0x4b72ff
-      });
+    addBox(0, 1.5, -6, 10, 3, 0.25, 0xd9dde0);
+    addBox(-5, 1.5, -1, 0.25, 3, 10, 0xd9dde0);
+    addBox(5, 1.5, -1, 0.25, 3, 10, 0xd9dde0);
 
-    const cube =
-      new THREE.Mesh(
-        cubeGeometry,
-        cubeMaterial
-      );
+    addBox(-2.3, 0.55, -2.7, 1.5, 1.1, 0.8, 0x9b7653);
+    addBox(2.5, 0.9, -3.5, 0.7, 1.8, 0.7, 0x6f7d8f);
 
-    cube.position.set(
-      0,
-      0.5,
-      0
-    );
+    // =========================================================
+    // PLAYER + FIRST PERSON BODY
+    // =========================================================
 
-    scene.add(cube);
+    const player = new THREE.Group();
+    scene.add(player);
 
-    function animate() {
-      requestAnimationFrame(animate);
+    player.position.set(0, 0, 2.2);
 
-      cube.rotation.y += 0.01;
+    const yawObject = new THREE.Group();
+    player.add(yawObject);
 
-      renderer.render(
-        scene,
-        camera
+    const pitchObject = new THREE.Group();
+    yawObject.add(pitchObject);
+
+    pitchObject.add(camera);
+
+    const body = new THREE.Group();
+    yawObject.add(body);
+
+    const skinMaterial = new THREE.MeshStandardMaterial({
+      color: 0xd6a078,
+      roughness: 0.72
+    });
+
+    const shirtMaterial = new THREE.MeshStandardMaterial({
+      color: 0x405f91,
+      roughness: 0.85
+    });
+
+    const pantsMaterial = new THREE.MeshStandardMaterial({
+      color: 0x202834,
+      roughness: 0.9
+    });
+
+    const shoeMaterial = new THREE.MeshStandardMaterial({
+      color: 0x161616,
+      roughness: 0.95
+    });
+
+    function boxPart(material) {
+      return new THREE.Mesh(
+        new THREE.BoxGeometry(1,1,1),
+        material
       );
     }
 
-    animate();
+    const torso = boxPart(shirtMaterial);
+    const hips = boxPart(pantsMaterial);
 
-    window.addEventListener(
-      "resize",
-      () => {
+    const leftUpperArm = boxPart(skinMaterial);
+    const rightUpperArm = boxPart(skinMaterial);
+    const leftForearm = boxPart(skinMaterial);
+    const rightForearm = boxPart(skinMaterial);
 
-        camera.aspect =
-          window.innerWidth /
-          window.innerHeight;
+    const leftHand = boxPart(skinMaterial);
+    const rightHand = boxPart(skinMaterial);
 
-        camera.updateProjectionMatrix();
+    const leftThigh = boxPart(pantsMaterial);
+    const rightThigh = boxPart(pantsMaterial);
+    const leftShin = boxPart(pantsMaterial);
+    const rightShin = boxPart(pantsMaterial);
 
-        renderer.setSize(
-          window.innerWidth,
-          window.innerHeight
-        );
-      }
+    const leftFoot = boxPart(shoeMaterial);
+    const rightFoot = boxPart(shoeMaterial);
+
+    body.add(
+      torso, hips,
+      leftUpperArm, rightUpperArm,
+      leftForearm, rightForearm,
+      leftHand, rightHand,
+      leftThigh, rightThigh,
+      leftShin, rightShin,
+      leftFoot, rightFoot
     );
-  </script>
 
+    // =========================================================
+    // CHARACTER PROFILES
+    // This is the important part:
+    // the game will eventually create these from the player's
+    // chosen starter and target.
+    // =========================================================
+
+    const starterProfile = {
+      name: "Starter",
+      height: 1.78,
+      shoulderWidth: 0.46,
+      torsoWidth: 0.39,
+      torsoDepth: 0.24,
+      waistWidth: 0.32,
+      hipWidth: 0.36,
+      armThickness: 0.12,
+      legThickness: 0.16,
+      handSize: 0.13,
+      footLength: 0.26,
+      skin: new THREE.Color(0xd6a078),
+      shirt: new THREE.Color(0x405f91),
+      pants: new THREE.Color(0x202834)
+    };
+
+    const targetProfile = {
+      name: "Target",
+      height: 1.56,
+      shoulderWidth: 0.39,
+      torsoWidth: 0.36,
+      torsoDepth: 0.30,
+      waistWidth: 0.27,
+      hipWidth: 0.46,
+      armThickness: 0.105,
+      legThickness: 0.205,
+      handSize: 0.115,
+      footLength: 0.235,
+      skin: new THREE.Color(0xb87552),
+      shirt: new THREE.Color(0x8f3d86),
+      pants: new THREE.Color(0x26222e)
+    };
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function lerpColor(a, b, t, outColor) {
+      outColor.copy(a).lerp(b, t);
+    }
+
+    function applyProfile(progress) {
+      const p = THREE.MathUtils.clamp(progress, 0, 1);
+
+      const height = lerp(starterProfile.height, targetProfile.height, p);
+      const shoulderWidth = lerp(starterProfile.shoulderWidth, targetProfile.shoulderWidth, p);
+      const torsoWidth = lerp(starterProfile.torsoWidth, targetProfile.torsoWidth, p);
+      const torsoDepth = lerp(starterProfile.torsoDepth, targetProfile.torsoDepth, p);
+      const waistWidth = lerp(starterProfile.waistWidth, targetProfile.waistWidth, p);
+      const hipWidth = lerp(starterProfile.hipWidth, targetProfile.hipWidth, p);
+      const armThickness = lerp(starterProfile.armThickness, targetProfile.armThickness, p);
+      const legThickness = lerp(starterProfile.legThickness, targetProfile.legThickness, p);
+      const handSize = lerp(starterProfile.handSize, targetProfile.handSize, p);
+      const footLength = lerp(starterProfile.footLength, targetProfile.footLength, p);
+
+      // Overall vertical proportions.
+      const eyeHeight = height * 0.93;
+      const torsoHeight = height * 0.31;
+      const hipHeight = height * 0.115;
+      const thighLength = height * 0.245;
+      const shinLength = height * 0.235;
+      const armUpperLength = height * 0.19;
+      const forearmLength = height * 0.17;
+
+      camera.position.set(0, eyeHeight, 0);
+
+      // Put the body slightly forward of the eyes.
+      // This makes it visible naturally when you look down.
+      const bodyForward = -0.055;
+
+      torso.scale.set(torsoWidth, torsoHeight, torsoDepth);
+      torso.position.set(
+        0,
+        eyeHeight - torsoHeight * 0.65,
+        bodyForward
+      );
+
+      hips.scale.set(hipWidth, hipHeight, torsoDepth * 0.92);
+      hips.position.set(
+        0,
+        torso.position.y - torsoHeight * 0.5 - hipHeight * 0.5,
+        bodyForward
+      );
+
+      // Arms
+      leftUpperArm.scale.set(armThickness, armUpperLength, armThickness);
+      rightUpperArm.scale.copy(leftUpperArm.scale);
+
+      leftUpperArm.position.set(
+        -shoulderWidth * 0.58,
+        torso.position.y + torsoHeight * 0.12,
+        bodyForward
+      );
+
+      rightUpperArm.position.set(
+        shoulderWidth * 0.58,
+        torso.position.y + torsoHeight * 0.12,
+        bodyForward
+      );
+
+      leftForearm.scale.set(armThickness * 0.9, forearmLength, armThickness * 0.9);
+      rightForearm.scale.copy(leftForearm.scale);
+
+      leftForearm.position.set(
+        leftUpperArm.position.x,
+        leftUpperArm.position.y - armUpperLength * 0.5 - forearmLength * 0.5,
+        bodyForward
+      );
+
+      rightForearm.position.set(
+        rightUpperArm.position.x,
+        rightUpperArm.position.y - armUpperLength * 0.5 - forearmLength * 0.5,
+        bodyForward
+      );
+
+      leftHand.scale.set(handSize, handSize * 1.25, handSize * 0.72);
+      rightHand.scale.copy(leftHand.scale);
+
+      leftHand.position.set(
+        leftForearm.position.x,
+        leftForearm.position.y - forearmLength * 0.5 - handSize * 0.55,
+        bodyForward - 0.015
+      );
+
+      rightHand.position.set(
+        rightForearm.position.x,
+        rightForearm.position.y - forearmLength * 0.5 - handSize * 0.55,
+        bodyForward - 0.015
+      );
+
+      // Legs
+      leftThigh.scale.set(legThickness, thighLength, legThickness * 1.05);
+      rightThigh.scale.copy(leftThigh.scale);
+
+      leftThigh.position.set(
+        -hipWidth * 0.25,
+        hips.position.y - hipHeight * 0.5 - thighLength * 0.5,
+        bodyForward
+      );
+
+      rightThigh.position.set(
+        hipWidth * 0.25,
+        hips.position.y - hipHeight * 0.5 - thighLength * 0.5,
+        bodyForward
+      );
+
+      leftShin.scale.set(legThickness * 0.82, shinLength, legThickness * 0.82);
+      rightShin.scale.copy(leftShin.scale);
+
+      leftShin.position.set(
+        leftThigh.position.x,
+        leftThigh.position.y - thighLength * 0.5 - shinLength * 0.5,
+        bodyForward
+      );
+
+      rightShin.position.set(
+        rightThigh.position.x,
+        rightThigh.position.y - thighLength * 0.5 - shinLength * 0.5,
+        bodyForward
+      );
+
+      leftFoot.scale.set(legThickness * 1.05, 0.09, footLength);
+      rightFoot.scale.copy(leftFoot.scale);
+
+      leftFoot.position.set(
+        leftShin.position.x,
+        0.045,
+        bodyForward - footLength * 0.25
+      );
+
+      rightFoot.position.set(
+        rightShin.position.x,
+        0.045,
+        bodyForward - footLength * 0.25
+      );
+
+      lerpColor(starterProfile.skin, targetProfile.skin, p, skinMaterial.color);
+      lerpColor(starterProfile.shirt, targetProfile.shirt, p, shirtMaterial.color);
+      lerpColor(starterProfile.pants, targetProfile.pants, p, pantsMaterial.color);
+    }
+
+    // =========================================================
+    // TRANSFORMATION SYSTEM
+    // =========================================================
+
+    let transformProgress = 0;
+    let transforming = false;
+    let transformStartTime = 0;
+
+    // Slow enough that you can actually watch it.
+    const transformationDuration = 18000;
+
+    const status = document.getElementById("status");
+    const barFill = document.getElementById("barFill");
+    const transformBtn = document.getElementById("transformBtn");
+
+    function startTransformation() {
+      if (transforming || transformProgress >= 1) return;
+
+      transforming = true;
+      transformStartTime = performance.now() - transformProgress * transformationDuration;
+      transformBtn.textContent = "TRANSFORMINGâ¦";
+      status.textContent = "Transformation underway â look down and watch your body change.";
+    }
+
+    function resetTransformation() {
+      transforming = false;
+      transformProgress = 0;
+      applyProfile(0);
+
+      transformBtn.textContent = "TRANSFORM";
+      status.textContent = "Starter form â drag anywhere to look around. Look down at your body.";
+      barFill.style.width = "0%";
+    }
+
+    transformBtn.addEventListener("click", startTransformation);
+    document.getElementById("resetBtn").addEventListener("click", resetTransformation);
+
+    // =========================================================
+    // MOBILE + MOUSE LOOK
+    // =========================================================
+
+    let yaw = 0;
+    let pitch = -0.38;
+
+    const maxPitch = THREE.MathUtils.degToRad(88);
+    const sensitivity = 0.004;
+
+    let dragging = false;
+    let lastX = 0;
+    let lastY = 0;
+
+    function beginLook(x, y) {
+      dragging = true;
+      lastX = x;
+      lastY = y;
+    }
+
+    function moveLook(x, y) {
+      if (!dragging) return;
+
+      const dx = x - lastX;
+      const dy = y - lastY;
+
+      lastX = x;
+      lastY = y;
+
+      yaw -= dx * sensitivity;
+      pitch -= dy * sensitivity;
+
+      pitch = THREE.MathUtils.clamp(
+        pitch,
+        -maxPitch,
+        maxPitch
+      );
+    }
+
+    function endLook() {
+      dragging = false;
+    }
+
+    renderer.domElement.addEventListener("touchstart", (e) => {
+      if (e.touches.length === 1) {
+        beginLook(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: false });
+
+    renderer.domElement.addEventListener("touchmove", (e) => {
+      if (e.touches.length === 1) {
+        e.preventDefault();
+        moveLook(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: false });
+
+    renderer.domElement.addEventListener("touchend", endLook);
+    renderer.domElement.addEventListener("touchcancel", endLook);
+
+    renderer.domElement.addEventListener("mousedown", (e) => {
+      beginLook(e.clientX, e.clientY);
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      moveLook(e.clientX, e.clientY);
+    });
+
+    window.addEventListener("mouseup", endLook);
+
+    // =========================================================
+    // ANIMATION LOOP
+    // =========================================================
+
+    applyProfile(0);
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+
+      yawObject.rotation.y = yaw;
+      pitchObject.rotation.x = pitch;
+
+      if (transforming) {
+        transformProgress = (now - transformStartTime) / transformationDuration;
+        transformProgress = THREE.MathUtils.clamp(transformProgress, 0, 1);
+
+        // Smoothstep makes the beginning and ending less robotic.
+        const smoothProgress =
+          transformProgress * transformProgress * (3 - 2 * transformProgress);
+
+        applyProfile(smoothProgress);
+
+        const pct = Math.round(transformProgress * 100);
+        barFill.style.width = pct + "%";
+        status.textContent = `Transformingâ¦ ${pct}% â keep looking down.`;
+
+        if (transformProgress >= 1) {
+          transforming = false;
+          transformBtn.textContent = "COMPLETE";
+          status.textContent = "Transformation complete â you are now fully in the target form.";
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    requestAnimationFrame(animate);
+
+    // =========================================================
+    // RESIZE
+    // =========================================================
+
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    });
+  </script>
 </body>
 </html>
