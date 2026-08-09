@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game Prototype V9</title>
+  <title>Transformation Game Prototype V10</title>
 
   <style>
     * {
@@ -43,7 +43,7 @@
     }
 
     .panel {
-      max-width: 500px;
+      max-width: 520px;
       margin: 0 auto;
       padding: 10px 13px;
       border-radius: 16px;
@@ -133,9 +133,9 @@
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game - V9 Morph Target Humanoid</div>
+      <div class="title">Transformation Game - V10 Human Anatomy + Hair</div>
       <div id="status" class="status">
-        Starter form. V9 uses real vertex morph targets instead of blobs.
+        Starter form. V10 has a more anatomical body, shaped limbs, hands, feet, head and hair.
       </div>
       <div class="bar">
         <div id="barFill"></div>
@@ -144,7 +144,7 @@
   </div>
 
   <div id="hint">
-    V9: human-shaped mesh parts with vertex-level morphing
+    V10: anatomical morph-target humanoid with transforming hair
   </div>
 
   <div id="bottomUI">
@@ -165,9 +165,9 @@
     scene.background = new THREE.Color(0x91d5f4);
 
     const camera = new THREE.PerspectiveCamera(
-      68,
+      64,
       window.innerWidth / window.innerHeight,
-      0.025,
+      0.02,
       150
     );
 
@@ -179,7 +179,6 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.shadowMap.enabled = false;
 
     document.getElementById("game").appendChild(renderer.domElement);
 
@@ -189,7 +188,7 @@
 
     scene.add(new THREE.HemisphereLight(0xffffff, 0x53616e, 2.15));
 
-    const sun = new THREE.DirectionalLight(0xffffff, 2.5);
+    const sun = new THREE.DirectionalLight(0xffffff, 2.6);
     sun.position.set(4, 9, 4);
     scene.add(sun);
 
@@ -206,12 +205,8 @@
     function worldBox(x, y, z, sx, sy, sz, color) {
       const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(1, 1, 1),
-        new THREE.MeshStandardMaterial({
-          color,
-          roughness: 0.84
-        })
+        new THREE.MeshStandardMaterial({ color, roughness: 0.84 })
       );
-
       mesh.position.set(x, y, z);
       mesh.scale.set(sx, sy, sz);
       scene.add(mesh);
@@ -221,12 +216,11 @@
     worldBox(0, 1.5, -6.3, 10, 3, 0.22, 0xdce0e3);
     worldBox(-5.1, 1.5, -1.0, 0.22, 3, 10, 0xdce0e3);
     worldBox(5.1, 1.5, -1.0, 0.22, 3, 10, 0xdce0e3);
-
     worldBox(-2.6, 0.45, -3.5, 1.45, 0.9, 0.75, 0x9b7755);
     worldBox(2.6, 0.88, -3.9, 0.72, 1.76, 0.72, 0x6d7c8f);
 
     // =========================================================
-    // PLAYER RIG
+    // PLAYER
     // =========================================================
 
     const player = new THREE.Group();
@@ -245,35 +239,46 @@
 
     const skinMaterial = new THREE.MeshStandardMaterial({
       color: 0xd6a079,
-      roughness: 0.72
+      roughness: 0.68
     });
 
-    const torsoMaterial = new THREE.MeshStandardMaterial({
+    const topMaterial = new THREE.MeshStandardMaterial({
       color: 0x41618f,
-      roughness: 0.84
+      roughness: 0.82
     });
 
     const lowerMaterial = new THREE.MeshStandardMaterial({
       color: 0x222b37,
-      roughness: 0.90
+      roughness: 0.88
     });
 
     const shoeMaterial = new THREE.MeshStandardMaterial({
-      color: 0x161616,
-      roughness: 0.96
+      color: 0x171717,
+      roughness: 0.94
+    });
+
+    const hairMaterial = new THREE.MeshStandardMaterial({
+      color: 0x3a291f,
+      roughness: 0.86
     });
 
     // =========================================================
-    // PROFILE DATA
+    // PROFILES
     // =========================================================
 
     const starter = {
       height: 1.80,
       eyeHeight: 1.69,
 
-      torsoHeight: 0.66,
+      torsoY: 0.82,
+      torsoH: 0.67,
+
+      neckW: 0.108,
+      neckD: 0.100,
+
       shoulderW: 0.46,
-      upperChestW: 0.42,
+      clavicleW: 0.43,
+      upperChestW: 0.405,
       chestW: 0.39,
       ribW: 0.35,
       waistW: 0.30,
@@ -281,108 +286,136 @@
       hipW: 0.37,
       lowHipW: 0.31,
 
-      shoulderD: 0.20,
-      chestD: 0.22,
-      ribD: 0.20,
-      waistD: 0.18,
-      highHipD: 0.22,
-      hipD: 0.25,
-      lowHipD: 0.22,
+      shoulderD: 0.19,
+      chestD: 0.215,
+      ribD: 0.195,
+      waistD: 0.175,
+      highHipD: 0.215,
+      hipD: 0.245,
+      lowHipD: 0.215,
 
-      chestFront: 0.018,
-      bellyFront: 0.012,
+      chestFront: 0.015,
+      abdomenFront: 0.010,
       gluteBack: 0.035,
 
-      upperArmLength: 0.32,
-      forearmLength: 0.29,
-      upperArmTop: 0.060,
-      upperArmBottom: 0.050,
-      forearmTop: 0.048,
-      forearmBottom: 0.038,
+      upperArmL: 0.315,
+      forearmL: 0.285,
 
-      handW: 0.090,
+      upperArmShoulder: 0.062,
+      upperArmMid: 0.055,
+      upperArmElbow: 0.047,
+
+      forearmElbow: 0.048,
+      forearmMid: 0.043,
+      forearmWrist: 0.034,
+
+      thighL: 0.425,
+      shinL: 0.395,
+
+      thighHip: 0.104,
+      thighMid: 0.091,
+      thighKnee: 0.073,
+
+      shinKnee: 0.072,
+      shinCalf: 0.079,
+      shinAnkle: 0.047,
+
+      handW: 0.086,
       handH: 0.145,
-      handD: 0.046,
+      handD: 0.044,
 
-      thighLength: 0.43,
-      shinLength: 0.40,
-      thighTop: 0.102,
-      thighBottom: 0.074,
-      shinTop: 0.072,
-      shinBottom: 0.050,
+      footW: 0.132,
+      footH: 0.073,
+      footL: 0.272,
 
-      footW: 0.135,
-      footH: 0.080,
-      footL: 0.270,
-
-      neckW: 0.115,
-      neckD: 0.105,
       headW: 0.155,
       headH: 0.205,
       headD: 0.165,
 
+      hairLength: 0.070,
+      hairBack: 0.035,
+      hairSide: 0.020,
+
       skin: new THREE.Color(0xd6a079),
-      torsoColor: new THREE.Color(0x41618f),
-      lowerColor: new THREE.Color(0x222b37)
+      topColor: new THREE.Color(0x41618f),
+      lowerColor: new THREE.Color(0x222b37),
+      hairColor: new THREE.Color(0x3a291f)
     };
 
     const target = {
       height: 1.55,
       eyeHeight: 1.45,
 
-      torsoHeight: 0.61,
+      torsoY: 0.77,
+      torsoH: 0.61,
+
+      neckW: 0.096,
+      neckD: 0.090,
+
       shoulderW: 0.385,
-      upperChestW: 0.365,
-      chestW: 0.37,
-      ribW: 0.31,
-      waistW: 0.255,
-      highHipW: 0.42,
-      hipW: 0.47,
-      lowHipW: 0.39,
+      clavicleW: 0.37,
+      upperChestW: 0.355,
+      chestW: 0.365,
+      ribW: 0.305,
+      waistW: 0.252,
+      highHipW: 0.415,
+      hipW: 0.465,
+      lowHipW: 0.395,
 
-      shoulderD: 0.18,
-      chestD: 0.245,
-      ribD: 0.19,
-      waistD: 0.17,
-      highHipD: 0.28,
-      hipD: 0.32,
-      lowHipD: 0.29,
+      shoulderD: 0.175,
+      chestD: 0.240,
+      ribD: 0.185,
+      waistD: 0.165,
+      highHipD: 0.275,
+      hipD: 0.315,
+      lowHipD: 0.285,
 
-      chestFront: 0.070,
-      bellyFront: 0.020,
-      gluteBack: 0.085,
+      chestFront: 0.062,
+      abdomenFront: 0.018,
+      gluteBack: 0.080,
 
-      upperArmLength: 0.29,
-      forearmLength: 0.265,
-      upperArmTop: 0.050,
-      upperArmBottom: 0.042,
-      forearmTop: 0.041,
-      forearmBottom: 0.033,
+      upperArmL: 0.285,
+      forearmL: 0.260,
 
-      handW: 0.082,
+      upperArmShoulder: 0.052,
+      upperArmMid: 0.047,
+      upperArmElbow: 0.040,
+
+      forearmElbow: 0.041,
+      forearmMid: 0.037,
+      forearmWrist: 0.030,
+
+      thighL: 0.385,
+      shinL: 0.360,
+
+      thighHip: 0.128,
+      thighMid: 0.111,
+      thighKnee: 0.085,
+
+      shinKnee: 0.078,
+      shinCalf: 0.083,
+      shinAnkle: 0.045,
+
+      handW: 0.078,
       handH: 0.126,
-      handD: 0.042,
+      handD: 0.039,
 
-      thighLength: 0.39,
-      shinLength: 0.365,
-      thighTop: 0.126,
-      thighBottom: 0.087,
-      shinTop: 0.079,
-      shinBottom: 0.048,
+      footW: 0.122,
+      footH: 0.068,
+      footL: 0.246,
 
-      footW: 0.126,
-      footH: 0.074,
-      footL: 0.245,
-
-      neckW: 0.102,
-      neckD: 0.094,
       headW: 0.145,
       headH: 0.194,
       headD: 0.154,
 
+      hairLength: 0.430,
+      hairBack: 0.115,
+      hairSide: 0.070,
+
       skin: new THREE.Color(0xb87555),
-      torsoColor: new THREE.Color(0x914188),
-      lowerColor: new THREE.Color(0x2a2230)
+      topColor: new THREE.Color(0x914188),
+      lowerColor: new THREE.Color(0x2a2230),
+      hairColor: new THREE.Color(0x33201d)
     };
 
     function mix(a, b, t) {
@@ -390,103 +423,141 @@
     }
 
     // =========================================================
-    // MORPH-TARGET HELPERS
+    // GENERIC MORPH HELPERS
     // =========================================================
 
-    function makeMorphSphere(startDims, targetDims, material, segments = 24) {
-      const geometry = new THREE.SphereGeometry(0.5, segments, 18);
-      const base = geometry.attributes.position;
-      const targetArray = new Float32Array(base.count * 3);
-
-      for (let i = 0; i < base.count; i++) {
-        const x = base.getX(i);
-        const y = base.getY(i);
-        const z = base.getZ(i);
-
-        targetArray[i * 3 + 0] = x * targetDims.x;
-        targetArray[i * 3 + 1] = y * targetDims.y;
-        targetArray[i * 3 + 2] = z * targetDims.z;
+    function setMorph(mesh, t) {
+      if (mesh.morphTargetInfluences) {
+        mesh.morphTargetInfluences[0] = t;
       }
+    }
 
-      for (let i = 0; i < base.count; i++) {
-        base.setXYZ(
+    function morphSphere(startDims, targetDims, material, widthSeg = 30, heightSeg = 22) {
+      const g = new THREE.SphereGeometry(0.5, widthSeg, heightSeg);
+      const p = g.attributes.position;
+      const target = new Float32Array(p.count * 3);
+
+      for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i);
+        const y = p.getY(i);
+        const z = p.getZ(i);
+
+        target[i * 3 + 0] = x * targetDims.x;
+        target[i * 3 + 1] = y * targetDims.y;
+        target[i * 3 + 2] = z * targetDims.z;
+
+        p.setXYZ(
           i,
-          base.getX(i) * startDims.x,
-          base.getY(i) * startDims.y,
-          base.getZ(i) * startDims.z
+          x * startDims.x,
+          y * startDims.y,
+          z * startDims.z
         );
       }
 
-      geometry.morphAttributes.position = [
-        new THREE.Float32BufferAttribute(targetArray, 3)
+      g.morphAttributes.position = [
+        new THREE.Float32BufferAttribute(target, 3)
       ];
 
-      const mesh = new THREE.Mesh(geometry, material);
-      mesh.morphTargetInfluences[0] = 0;
-
-      return mesh;
+      const m = new THREE.Mesh(g, material);
+      m.morphTargetInfluences[0] = 0;
+      return m;
     }
 
-    function makeMorphCylinder(start, target, material, radial = 20) {
-      // Build normalized cylinder, then map each vertex to start/target shape.
-      const geometry = new THREE.CylinderGeometry(
-        1, 1, 1,
-        radial, 6,
-        false
-      );
+    function morphRadialSegment(start, end, material, radial = 24, vertical = 10) {
+      const verts = [];
+      const idx = [];
 
-      const base = geometry.attributes.position;
-      const targetArray = new Float32Array(base.count * 3);
-
-      for (let i = 0; i < base.count; i++) {
-        const x = base.getX(i);
-        const y = base.getY(i);
-        const z = base.getZ(i);
-
-        const u = y + 0.5; // 0 bottom -> 1 top
-
-        const sr = mix(start.bottomR, start.topR, u);
-        const tr = mix(target.bottomR, target.topR, u);
-
-        base.setXYZ(
-          i,
-          x * sr,
-          y * start.length,
-          z * sr
-        );
-
-        targetArray[i * 3 + 0] = x * tr;
-        targetArray[i * 3 + 1] = y * target.length;
-        targetArray[i * 3 + 2] = z * tr;
+      function sampleRadius(profile, u) {
+        if (u <= 0.5) {
+          return mix(profile.r0, profile.r1, u * 2);
+        }
+        return mix(profile.r1, profile.r2, (u - 0.5) * 2);
       }
 
-      geometry.morphAttributes.position = [
-        new THREE.Float32BufferAttribute(targetArray, 3)
+      for (let j = 0; j <= vertical; j++) {
+        const u = j / vertical;
+        const y = (u - 0.5);
+
+        for (let i = 0; i < radial; i++) {
+          const a = i / radial * Math.PI * 2;
+          verts.push(Math.cos(a), y, Math.sin(a));
+        }
+      }
+
+      for (let j = 0; j < vertical; j++) {
+        for (let i = 0; i < radial; i++) {
+          const n = (i + 1) % radial;
+
+          const a = j * radial + i;
+          const b = j * radial + n;
+          const c = (j + 1) * radial + i;
+          const d = (j + 1) * radial + n;
+
+          idx.push(a, c, b, b, c, d);
+        }
+      }
+
+      const g = new THREE.BufferGeometry();
+      const base = new Float32Array(verts.length);
+      const tar = new Float32Array(verts.length);
+
+      for (let j = 0; j <= vertical; j++) {
+        const u = j / vertical;
+        const sr = sampleRadius(start, u);
+        const tr = sampleRadius(end, u);
+
+        for (let i = 0; i < radial; i++) {
+          const k = (j * radial + i) * 3;
+          const x = verts[k];
+          const y = verts[k + 1];
+          const z = verts[k + 2];
+
+          base[k] = x * sr;
+          base[k + 1] = y * start.length;
+          base[k + 2] = z * sr;
+
+          tar[k] = x * tr;
+          tar[k + 1] = y * end.length;
+          tar[k + 2] = z * tr;
+        }
+      }
+
+      g.setAttribute("position", new THREE.BufferAttribute(base, 3));
+      g.setIndex(idx);
+      g.computeVertexNormals();
+
+      g.morphAttributes.position = [
+        new THREE.BufferAttribute(tar, 3)
       ];
 
-      const mesh = new THREE.Mesh(geometry, material);
-      mesh.morphTargetInfluences[0] = 0;
-
-      return mesh;
+      const m = new THREE.Mesh(g, material);
+      m.morphTargetInfluences[0] = 0;
+      return m;
     }
 
-    function buildTorsoGeometry(profile) {
+    // =========================================================
+    // TORSO MESH
+    // =========================================================
+
+    function torsoGeometry(profile) {
       const rings = [
         { y: 0.00, w: profile.lowHipW, d: profile.lowHipD },
-        { y: 0.08, w: profile.hipW * 0.94, d: profile.hipD * 0.95 },
-        { y: 0.17, w: profile.hipW, d: profile.hipD },
-        { y: 0.28, w: profile.highHipW, d: profile.highHipD },
-        { y: 0.40, w: profile.waistW * 1.04, d: profile.waistD * 1.03 },
-        { y: 0.50, w: profile.waistW, d: profile.waistD },
+        { y: 0.07, w: profile.lowHipW * 1.05, d: profile.lowHipD * 1.02 },
+        { y: 0.15, w: profile.hipW * 0.96, d: profile.hipD * 0.96 },
+        { y: 0.23, w: profile.hipW, d: profile.hipD },
+        { y: 0.33, w: profile.highHipW, d: profile.highHipD },
+        { y: 0.43, w: profile.waistW * 1.05, d: profile.waistD * 1.05 },
+        { y: 0.51, w: profile.waistW, d: profile.waistD },
         { y: 0.61, w: profile.ribW, d: profile.ribD },
-        { y: 0.71, w: profile.chestW * 0.95, d: profile.chestD },
-        { y: 0.80, w: profile.chestW, d: profile.chestD },
-        { y: 0.89, w: profile.upperChestW, d: profile.shoulderD },
-        { y: 0.96, w: profile.shoulderW * 0.92, d: profile.shoulderD * 0.95 },
-        { y: 1.00, w: profile.neckW * 1.25, d: profile.neckD * 1.20 }
+        { y: 0.70, w: profile.chestW * 0.94, d: profile.chestD * 0.96 },
+        { y: 0.78, w: profile.chestW, d: profile.chestD },
+        { y: 0.86, w: profile.upperChestW, d: profile.shoulderD },
+        { y: 0.92, w: profile.clavicleW, d: profile.shoulderD * 0.95 },
+        { y: 0.96, w: profile.shoulderW * 0.94, d: profile.shoulderD * 0.90 },
+        { y: 1.00, w: profile.neckW * 1.18, d: profile.neckD * 1.10 }
       ];
 
-      const radial = 32;
+      const radial = 40;
       const vertices = [];
       const indices = [];
       const uvs = [];
@@ -505,21 +576,26 @@
           const front = Math.max(0, -s);
           const back = Math.max(0, s);
 
-          if (ring.y >= 0.68 && ring.y <= 0.88) {
+          if (ring.y >= 0.68 && ring.y <= 0.86) {
             z -= profile.chestFront * front;
           }
 
-          if (ring.y >= 0.36 && ring.y <= 0.60) {
-            z -= profile.bellyFront * front;
+          if (ring.y >= 0.37 && ring.y <= 0.62) {
+            z -= profile.abdomenFront * front;
           }
 
-          if (ring.y <= 0.28) {
+          if (ring.y <= 0.33) {
             z += profile.gluteBack * back;
+          }
+
+          // Flatter clavicle area.
+          if (ring.y >= 0.90) {
+            z *= 0.92;
           }
 
           vertices.push(
             x,
-            ring.y * profile.torsoHeight,
+            ring.y * profile.torsoH,
             z
           );
 
@@ -529,284 +605,411 @@
 
       for (let r = 0; r < rings.length - 1; r++) {
         for (let i = 0; i < radial; i++) {
-          const next = (i + 1) % radial;
+          const n = (i + 1) % radial;
 
           const a = r * radial + i;
-          const b = r * radial + next;
+          const b = r * radial + n;
           const c = (r + 1) * radial + i;
-          const d = (r + 1) * radial + next;
+          const d = (r + 1) * radial + n;
 
-          indices.push(a, c, b);
-          indices.push(b, c, d);
+          indices.push(a, c, b, b, c, d);
         }
       }
 
-      const geometry = new THREE.BufferGeometry();
-
-      geometry.setAttribute(
+      const g = new THREE.BufferGeometry();
+      g.setAttribute(
         "position",
         new THREE.Float32BufferAttribute(vertices, 3)
       );
-
-      geometry.setAttribute(
+      g.setAttribute(
         "uv",
         new THREE.Float32BufferAttribute(uvs, 2)
       );
+      g.setIndex(indices);
+      g.computeVertexNormals();
 
-      geometry.setIndex(indices);
-      geometry.computeVertexNormals();
-
-      return geometry;
+      return g;
     }
 
-    function makeMorphTorso(start, target, material) {
-      const startGeo = buildTorsoGeometry(start);
-      const targetGeo = buildTorsoGeometry(target);
+    function morphTorso(start, end, material) {
+      const g0 = torsoGeometry(start);
+      const g1 = torsoGeometry(end);
 
-      const targetPos = targetGeo.attributes.position;
-
-      startGeo.morphAttributes.position = [
+      g0.morphAttributes.position = [
         new THREE.Float32BufferAttribute(
-          targetPos.array.slice(),
+          g1.attributes.position.array.slice(),
           3
         )
       ];
 
-      const mesh = new THREE.Mesh(startGeo, material);
-      mesh.morphTargetInfluences[0] = 0;
+      const m = new THREE.Mesh(g0, material);
+      m.morphTargetInfluences[0] = 0;
 
-      targetGeo.dispose();
-
-      return mesh;
+      g1.dispose();
+      return m;
     }
 
     // =========================================================
-    // BODY CONSTRUCTION
+    // HAIR
     // =========================================================
 
-    const torso = makeMorphTorso(starter, target, torsoMaterial);
-    bodyRoot.add(torso);
-    torso.position.set(0, 0.83, 0.035);
+    function hairGeometry(profile) {
+      const radial = 40;
+      const rows = 10;
+      const vertices = [];
+      const indices = [];
 
-    const neck = makeMorphCylinder(
+      // Hair shell around top/back/sides of head.
+      for (let j = 0; j <= rows; j++) {
+        const v = j / rows;
+
+        // v=0 crown, v=1 lower hair edge
+        const y = 0.10 - v * profile.hairLength;
+        const widen = 1 + v * profile.hairSide;
+
+        for (let i = 0; i < radial; i++) {
+          const a = i / radial * Math.PI * 2;
+          const c = Math.cos(a);
+          const s = Math.sin(a);
+
+          // Front is -Z. Hair shell is fuller behind/sides.
+          const back = Math.max(0, s);
+          const side = Math.abs(c);
+
+          const rx = profile.headW * 0.54 * widen;
+          const rz =
+            profile.headD * 0.54 +
+            profile.hairBack * back +
+            profile.hairSide * side * v;
+
+          let x = c * rx;
+          let z = s * rz;
+
+          // Recede front hairline as rows descend.
+          if (s < 0) {
+            z *= 0.92 - v * 0.20;
+          }
+
+          vertices.push(x, y, z);
+        }
+      }
+
+      for (let j = 0; j < rows; j++) {
+        for (let i = 0; i < radial; i++) {
+          const n = (i + 1) % radial;
+
+          const a = j * radial + i;
+          const b = j * radial + n;
+          const c = (j + 1) * radial + i;
+          const d = (j + 1) * radial + n;
+
+          indices.push(a, c, b, b, c, d);
+        }
+      }
+
+      const g = new THREE.BufferGeometry();
+      g.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(vertices, 3)
+      );
+      g.setIndex(indices);
+      g.computeVertexNormals();
+      return g;
+    }
+
+    function morphHair(start, end) {
+      const g0 = hairGeometry(start);
+      const g1 = hairGeometry(end);
+
+      g0.morphAttributes.position = [
+        new THREE.Float32BufferAttribute(
+          g1.attributes.position.array.slice(),
+          3
+        )
+      ];
+
+      const m = new THREE.Mesh(g0, hairMaterial);
+      m.morphTargetInfluences[0] = 0;
+
+      g1.dispose();
+      return m;
+    }
+
+    // =========================================================
+    // BUILD BODY
+    // =========================================================
+
+    const torso = morphTorso(starter, target, topMaterial);
+    bodyRoot.add(torso);
+
+    const neck = morphRadialSegment(
       {
-        topR: starter.neckW * 0.48,
-        bottomR: starter.neckW * 0.58,
+        r0: starter.neckW * 0.48,
+        r1: starter.neckW * 0.51,
+        r2: starter.neckW * 0.58,
         length: 0.115
       },
       {
-        topR: target.neckW * 0.48,
-        bottomR: target.neckW * 0.58,
+        r0: target.neckW * 0.48,
+        r1: target.neckW * 0.51,
+        r2: target.neckW * 0.58,
         length: 0.105
       },
       skinMaterial
     );
     bodyRoot.add(neck);
 
-    const head = makeMorphSphere(
+    const head = morphSphere(
       new THREE.Vector3(starter.headW, starter.headH, starter.headD),
       new THREE.Vector3(target.headW, target.headH, target.headD),
-      skinMaterial,
-      28
+      skinMaterial
     );
     bodyRoot.add(head);
 
-    function createArm(sign) {
-      const group = new THREE.Group();
-      bodyRoot.add(group);
+    const hair = morphHair(starter, target);
+    bodyRoot.add(hair);
 
-      const upper = makeMorphCylinder(
+    // Simple ears help the head read more like a human head.
+    const leftEar = morphSphere(
+      new THREE.Vector3(0.026, 0.055, 0.018),
+      new THREE.Vector3(0.024, 0.052, 0.017),
+      skinMaterial,
+      18, 14
+    );
+
+    const rightEar = leftEar.clone();
+    rightEar.geometry = leftEar.geometry.clone();
+
+    bodyRoot.add(leftEar, rightEar);
+
+    function makeArm(sign) {
+      const upper = morphRadialSegment(
         {
-          topR: starter.upperArmTop,
-          bottomR: starter.upperArmBottom,
-          length: starter.upperArmLength
+          r0: starter.upperArmElbow,
+          r1: starter.upperArmMid,
+          r2: starter.upperArmShoulder,
+          length: starter.upperArmL
         },
         {
-          topR: target.upperArmTop,
-          bottomR: target.upperArmBottom,
-          length: target.upperArmLength
+          r0: target.upperArmElbow,
+          r1: target.upperArmMid,
+          r2: target.upperArmShoulder,
+          length: target.upperArmL
         },
         skinMaterial
       );
 
-      const forearm = makeMorphCylinder(
+      const forearm = morphRadialSegment(
         {
-          topR: starter.forearmTop,
-          bottomR: starter.forearmBottom,
-          length: starter.forearmLength
+          r0: starter.forearmWrist,
+          r1: starter.forearmMid,
+          r2: starter.forearmElbow,
+          length: starter.forearmL
         },
         {
-          topR: target.forearmTop,
-          bottomR: target.forearmBottom,
-          length: target.forearmLength
+          r0: target.forearmWrist,
+          r1: target.forearmMid,
+          r2: target.forearmElbow,
+          length: target.forearmL
         },
         skinMaterial
       );
 
-      const hand = makeMorphSphere(
+      const hand = morphSphere(
         new THREE.Vector3(starter.handW, starter.handH, starter.handD),
         new THREE.Vector3(target.handW, target.handH, target.handD),
         skinMaterial,
-        20
+        20, 16
       );
 
-      group.add(upper, forearm, hand);
+      bodyRoot.add(upper, forearm, hand);
 
-      return { sign, group, upper, forearm, hand };
+      return { sign, upper, forearm, hand };
     }
 
-    const leftArm = createArm(-1);
-    const rightArm = createArm(1);
+    const leftArm = makeArm(-1);
+    const rightArm = makeArm(1);
 
-    function createLeg(sign) {
-      const group = new THREE.Group();
-      bodyRoot.add(group);
-
-      const thigh = makeMorphCylinder(
+    function makeLeg(sign) {
+      const thigh = morphRadialSegment(
         {
-          topR: starter.thighTop,
-          bottomR: starter.thighBottom,
-          length: starter.thighLength
+          r0: starter.thighKnee,
+          r1: starter.thighMid,
+          r2: starter.thighHip,
+          length: starter.thighL
         },
         {
-          topR: target.thighTop,
-          bottomR: target.thighBottom,
-          length: target.thighLength
-        },
-        lowerMaterial,
-        22
-      );
-
-      const shin = makeMorphCylinder(
-        {
-          topR: starter.shinTop,
-          bottomR: starter.shinBottom,
-          length: starter.shinLength
-        },
-        {
-          topR: target.shinTop,
-          bottomR: target.shinBottom,
-          length: target.shinLength
+          r0: target.thighKnee,
+          r1: target.thighMid,
+          r2: target.thighHip,
+          length: target.thighL
         },
         lowerMaterial,
-        22
+        28, 12
       );
 
-      const foot = makeMorphSphere(
+      const shin = morphRadialSegment(
+        {
+          r0: starter.shinAnkle,
+          r1: starter.shinCalf,
+          r2: starter.shinKnee,
+          length: starter.shinL
+        },
+        {
+          r0: target.shinAnkle,
+          r1: target.shinCalf,
+          r2: target.shinKnee,
+          length: target.shinL
+        },
+        lowerMaterial,
+        28, 12
+      );
+
+      const foot = morphSphere(
         new THREE.Vector3(starter.footW, starter.footH, starter.footL),
         new THREE.Vector3(target.footW, target.footH, target.footL),
         shoeMaterial,
-        20
+        24, 18
       );
 
-      group.add(thigh, shin, foot);
+      bodyRoot.add(thigh, shin, foot);
 
-      return { sign, group, thigh, shin, foot };
+      return { sign, thigh, shin, foot };
     }
 
-    const leftLeg = createLeg(-1);
-    const rightLeg = createLeg(1);
+    const leftLeg = makeLeg(-1);
+    const rightLeg = makeLeg(1);
 
     // =========================================================
-    // APPLY MORPH
+    // APPLY BODY STATE
     // =========================================================
 
-    function applyMorph(p) {
-      const t = THREE.MathUtils.clamp(p, 0, 1);
+    function applyBody(t) {
+      const p = THREE.MathUtils.clamp(t, 0, 1);
 
-      torso.morphTargetInfluences[0] = t;
-      neck.morphTargetInfluences[0] = t;
-      head.morphTargetInfluences[0] = t;
+      setMorph(torso, p);
+      setMorph(neck, p);
+      setMorph(head, p);
+      setMorph(hair, p);
+      setMorph(leftEar, p);
+      setMorph(rightEar, p);
 
       for (const arm of [leftArm, rightArm]) {
-        arm.upper.morphTargetInfluences[0] = t;
-        arm.forearm.morphTargetInfluences[0] = t;
-        arm.hand.morphTargetInfluences[0] = t;
+        setMorph(arm.upper, p);
+        setMorph(arm.forearm, p);
+        setMorph(arm.hand, p);
       }
 
       for (const leg of [leftLeg, rightLeg]) {
-        leg.thigh.morphTargetInfluences[0] = t;
-        leg.shin.morphTargetInfluences[0] = t;
-        leg.foot.morphTargetInfluences[0] = t;
+        setMorph(leg.thigh, p);
+        setMorph(leg.shin, p);
+        setMorph(leg.foot, p);
       }
 
-      // Colors
-      skinMaterial.color.copy(starter.skin).lerp(target.skin, t);
-      torsoMaterial.color.copy(starter.torsoColor).lerp(target.torsoColor, t);
-      lowerMaterial.color.copy(starter.lowerColor).lerp(target.lowerColor, t);
+      skinMaterial.color.copy(starter.skin).lerp(target.skin, p);
+      topMaterial.color.copy(starter.topColor).lerp(target.topColor, p);
+      lowerMaterial.color.copy(starter.lowerColor).lerp(target.lowerColor, p);
+      hairMaterial.color.copy(starter.hairColor).lerp(target.hairColor, p);
 
-      // Torso stays anchored near pelvis.
-      torso.position.y = mix(0.83, 0.78, t);
+      const torsoY = mix(starter.torsoY, target.torsoY, p);
+      const torsoH = mix(starter.torsoH, target.torsoH, p);
 
-      // Neck and head.
-      const torsoTop =
-        torso.position.y +
-        mix(starter.torsoHeight, target.torsoHeight, t);
+      torso.position.set(0, torsoY, 0.035);
 
-      neck.position.set(
-        0,
-        torsoTop + 0.050,
-        -0.005
-      );
+      const torsoTop = torsoY + torsoH;
+
+      neck.position.set(0, torsoTop + 0.050, -0.002);
 
       head.position.set(
         0,
-        torsoTop + 0.165,
-        0.005
+        torsoTop + 0.164,
+        -0.005
       );
 
-      // Arms.
-      const shoulderW = mix(starter.shoulderW, target.shoulderW, t);
-      const upperArmLength = mix(starter.upperArmLength, target.upperArmLength, t);
-      const forearmLength = mix(starter.forearmLength, target.forearmLength, t);
+      hair.position.copy(head.position);
+      hair.position.y += 0.035;
+      hair.position.z += 0.010;
+
+      const headW = mix(starter.headW, target.headW, p);
+
+      leftEar.position.set(
+        -headW * 0.53,
+        head.position.y,
+        head.position.z
+      );
+
+      rightEar.position.set(
+        headW * 0.53,
+        head.position.y,
+        head.position.z
+      );
+
+      // Arms
+      const shoulderW = mix(starter.shoulderW, target.shoulderW, p);
+      const upperL = mix(starter.upperArmL, target.upperArmL, p);
+      const foreL = mix(starter.forearmL, target.forearmL, p);
+      const handH = mix(starter.handH, target.handH, p);
 
       for (const arm of [leftArm, rightArm]) {
-        const sx = arm.sign * shoulderW * 0.54;
+        const x = arm.sign * shoulderW * 0.535;
 
         arm.upper.position.set(
-          sx,
-          torsoTop - 0.055 - upperArmLength * 0.50,
-          0.015
+          x,
+          torsoTop - 0.060 - upperL * 0.50,
+          0.018
         );
+
+        // Slight natural elbow bend/forwardness.
+        arm.upper.rotation.z = arm.sign * THREE.MathUtils.degToRad(2.5);
+        arm.upper.rotation.x = THREE.MathUtils.degToRad(2.0);
 
         arm.forearm.position.set(
-          sx + arm.sign * 0.012,
-          torsoTop - 0.055 - upperArmLength - forearmLength * 0.50,
-          0.002
+          x + arm.sign * 0.012,
+          torsoTop - 0.060 - upperL - foreL * 0.50,
+          -0.006
         );
+
+        arm.forearm.rotation.z = arm.sign * THREE.MathUtils.degToRad(-2.0);
+        arm.forearm.rotation.x = THREE.MathUtils.degToRad(-3.0);
 
         arm.hand.position.set(
-          sx + arm.sign * 0.018,
-          torsoTop - 0.055 - upperArmLength - forearmLength - mix(starter.handH, target.handH, t) * 0.45,
-          -0.008
+          x + arm.sign * 0.016,
+          torsoTop - 0.060 - upperL - foreL - handH * 0.46,
+          -0.014
         );
+
+        arm.hand.rotation.z = arm.sign * THREE.MathUtils.degToRad(3.0);
       }
 
-      // Legs.
-      const hipW = mix(starter.hipW, target.hipW, t);
-      const thighLength = mix(starter.thighLength, target.thighLength, t);
-      const shinLength = mix(starter.shinLength, target.shinLength, t);
+      // Legs
+      const hipW = mix(starter.hipW, target.hipW, p);
+      const thighL = mix(starter.thighL, target.thighL, p);
+      const shinL = mix(starter.shinL, target.shinL, p);
+      const footL = mix(starter.footL, target.footL, p);
 
       for (const leg of [leftLeg, rightLeg]) {
-        const lx = leg.sign * hipW * 0.21;
+        const x = leg.sign * hipW * 0.205;
 
         leg.thigh.position.set(
-          lx,
-          torso.position.y - thighLength * 0.50 + 0.015,
-          0.020
+          x,
+          torsoY - thighL * 0.50 + 0.015,
+          0.025
         );
 
         leg.shin.position.set(
-          lx,
-          torso.position.y - thighLength - shinLength * 0.50 + 0.015,
+          x,
+          torsoY - thighL - shinL * 0.50 + 0.014,
           0.010
         );
 
         leg.foot.position.set(
-          lx,
+          x,
           0.055,
-          -mix(starter.footL, target.footL, t) * 0.25
+          -footL * 0.30
         );
+
+        // Human feet point forward.
+        leg.foot.scale.z = 1.10;
       }
     }
 
@@ -823,7 +1026,6 @@
     let bodyView = false;
 
     const sensitivity = 0.0040;
-
     const minPitch = THREE.MathUtils.degToRad(-89);
     const maxPitch = THREE.MathUtils.degToRad(70);
 
@@ -837,7 +1039,7 @@
       cameraPivot.position.set(
         0,
         eyeHeight,
-        -0.11
+        -0.155
       );
     }
 
@@ -872,10 +1074,7 @@
       "touchstart",
       (e) => {
         if (e.touches.length === 1) {
-          beginLook(
-            e.touches[0].clientX,
-            e.touches[0].clientY
-          );
+          beginLook(e.touches[0].clientX, e.touches[0].clientY);
         }
       },
       { passive: false }
@@ -886,10 +1085,7 @@
       (e) => {
         if (e.touches.length === 1) {
           e.preventDefault();
-          moveLook(
-            e.touches[0].clientX,
-            e.touches[0].clientY
-          );
+          moveLook(e.touches[0].clientX, e.touches[0].clientY);
         }
       },
       { passive: false }
@@ -915,7 +1111,7 @@
       () => {
         bodyView = false;
         document.getElementById("viewBtn").textContent = "BODY VIEW";
-        setPitch(THREE.MathUtils.degToRad(-68));
+        setPitch(THREE.MathUtils.degToRad(-66));
       }
     );
 
@@ -929,7 +1125,7 @@
 
         status.textContent =
           bodyView
-            ? "Body view active. Inspect the actual morph-target humanoid."
+            ? "Body view active. Inspect the more anatomical human mesh and hair."
             : "First person restored. Use LOOK DOWN to inspect your body.";
       }
     );
@@ -942,7 +1138,7 @@
     let transforming = false;
     let transformStart = 0;
 
-    const TRANSFORM_MS = 30000;
+    const TRANSFORM_MS = 32000;
 
     const status = document.getElementById("status");
     const barFill = document.getElementById("barFill");
@@ -958,21 +1154,21 @@
       transformBtn.textContent = "TRANSFORMING";
 
       status.textContent =
-        "Transformation started. Real mesh vertices are morphing toward the target.";
+        "Transformation started. Anatomy, height, body shape, hair and colors are morphing.";
     }
 
     function resetTransformation() {
       transforming = false;
       progress = 0;
 
-      applyMorph(0);
+      applyBody(0);
       updateFirstPersonCamera(0);
 
       transformBtn.textContent = "TRANSFORM";
       barFill.style.width = "0%";
 
       status.textContent =
-        "Starter form restored. V9 uses real vertex morph targets instead of blobs.";
+        "Starter form restored. V10 has a more anatomical body, shaped limbs, hands, feet, head and hair.";
     }
 
     transformBtn.addEventListener("click", startTransformation);
@@ -982,7 +1178,7 @@
     // LOOP
     // =========================================================
 
-    applyMorph(0);
+    applyBody(0);
     updateFirstPersonCamera(0);
 
     function animate(now) {
@@ -990,20 +1186,18 @@
 
       yawRoot.rotation.y = yaw;
 
+      let smooth = progress * progress * (3 - 2 * progress);
+
       if (transforming) {
         progress =
           (now - transformStart) / TRANSFORM_MS;
 
-        progress = THREE.MathUtils.clamp(
-          progress,
-          0,
-          1
-        );
+        progress = THREE.MathUtils.clamp(progress, 0, 1);
 
-        const smooth =
+        smooth =
           progress * progress * (3 - 2 * progress);
 
-        applyMorph(smooth);
+        applyBody(smooth);
         updateFirstPersonCamera(smooth);
 
         const percent = Math.round(progress * 100);
@@ -1011,13 +1205,14 @@
 
         status.textContent =
           "Transforming... " + percent +
-          "% - real body mesh vertices are moving toward the target form.";
+          "% - anatomy, proportions, height and hair are changing continuously.";
 
         if (progress >= 1) {
           transforming = false;
           transformBtn.textContent = "COMPLETE";
+
           status.textContent =
-            "Transformation complete. The target humanoid mesh is fully applied.";
+            "Transformation complete. The target human form and hair are fully applied.";
         }
       }
 
@@ -1029,23 +1224,29 @@
 
         camera.rotation.set(pitch, 0, 0);
 
-        // Hide head and neck from first person so they do not block the view.
+        // Hide head-side geometry from the eye camera.
         head.visible = false;
         neck.visible = false;
+        hair.visible = false;
+        leftEar.visible = false;
+        rightEar.visible = false;
       } else {
         head.visible = true;
         neck.visible = true;
+        hair.visible = true;
+        leftEar.visible = true;
+        rightEar.visible = true;
 
         if (camera.parent !== scene) {
           scene.attach(camera);
         }
 
-        const h = mix(starter.height, target.height, progress);
+        const h = mix(starter.height, target.height, smooth);
 
         camera.position.set(
-          player.position.x + 1.5,
-          h * 0.70,
-          player.position.z + 3.15
+          player.position.x + 1.35,
+          h * 0.72,
+          player.position.z + 3.0
         );
 
         camera.lookAt(
