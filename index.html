@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game Prototype V3</title>
+  <title>Transformation Game Prototype V4</title>
 
   <style>
     * {
@@ -43,7 +43,7 @@
     }
 
     .panel {
-      max-width: 460px;
+      max-width: 470px;
       margin: 0 auto;
       padding: 11px 13px;
       border-radius: 16px;
@@ -88,18 +88,19 @@
       z-index: 30;
       display: flex;
       justify-content: center;
-      gap: 10px;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     button {
       border: 0;
       border-radius: 16px;
-      padding: 14px 18px;
-      font-size: 16px;
+      padding: 13px 16px;
+      font-size: 15px;
       font-weight: 800;
       color: #111;
       background: white;
-      min-width: 140px;
+      min-width: 126px;
       box-shadow: 0 6px 20px rgba(0,0,0,0.25);
     }
 
@@ -108,21 +109,21 @@
     }
 
     button.secondary {
-      min-width: 90px;
+      min-width: 88px;
       background: rgba(255,255,255,0.84);
     }
 
     #hint {
       position: fixed;
-      bottom: calc(env(safe-area-inset-bottom) + 80px);
-      left: 0;
-      right: 0;
+      bottom: calc(env(safe-area-inset-bottom) + 76px);
+      left: 8px;
+      right: 8px;
       text-align: center;
-      color: rgba(255,255,255,0.9);
+      color: rgba(255,255,255,0.92);
       font-size: 12px;
       z-index: 15;
       pointer-events: none;
-      text-shadow: 0 2px 5px rgba(0,0,0,0.65);
+      text-shadow: 0 2px 5px rgba(0,0,0,0.7);
     }
   </style>
 </head>
@@ -132,9 +133,9 @@
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game â V3</div>
+      <div class="title">Transformation Game â Rig Test V4</div>
       <div id="status" class="status">
-        Starter form. Drag to look around, then look down at your body.
+        You are in the starter body. Drag to look around, or tap LOOK DOWN.
       </div>
       <div class="bar">
         <div id="barFill"></div>
@@ -142,9 +143,10 @@
     </div>
   </div>
 
-  <div id="hint">Drag to look â¢ Look down â¢ Press Transform</div>
+  <div id="hint">Your camera is attached to the character's head â¢ body stays below you</div>
 
   <div id="bottomUI">
+    <button id="lookBtn" class="secondary">LOOK DOWN</button>
     <button id="transformBtn">TRANSFORM</button>
     <button id="resetBtn" class="secondary">RESET</button>
   </div>
@@ -153,16 +155,16 @@
     import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
 
     // =========================================================
-    // THREE.JS SETUP
+    // ENGINE
     // =========================================================
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x8fd3f4);
+    scene.background = new THREE.Color(0x91d5f4);
 
     const camera = new THREE.PerspectiveCamera(
-      76,
+      78,
       window.innerWidth / window.innerHeight,
-      0.035,
+      0.025,
       150
     );
 
@@ -178,82 +180,115 @@
     document.getElementById("game").appendChild(renderer.domElement);
 
     // =========================================================
-    // WORLD
+    // ROOM
     // =========================================================
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x52606d, 2.1));
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x53616e, 2.1));
 
-    const sun = new THREE.DirectionalLight(0xffffff, 2.2);
-    sun.position.set(4, 9, 5);
+    const sun = new THREE.DirectionalLight(0xffffff, 2.4);
+    sun.position.set(4, 9, 4);
     scene.add(sun);
 
     const floor = new THREE.Mesh(
       new THREE.PlaneGeometry(60, 60),
-      new THREE.MeshStandardMaterial({ color: 0x8d9297, roughness: 0.95 })
+      new THREE.MeshStandardMaterial({
+        color: 0x92979c,
+        roughness: 0.95
+      })
     );
+
     floor.rotation.x = -Math.PI / 2;
     scene.add(floor);
 
-    function addBox(x, y, z, sx, sy, sz, color) {
+    function worldBox(x, y, z, sx, sy, sz, color) {
       const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(1, 1, 1),
-        new THREE.MeshStandardMaterial({ color, roughness: 0.82 })
+        new THREE.MeshStandardMaterial({
+          color,
+          roughness: 0.84
+        })
       );
+
       mesh.position.set(x, y, z);
       mesh.scale.set(sx, sy, sz);
       scene.add(mesh);
       return mesh;
     }
 
-    addBox(0, 1.5, -6.5, 10, 3, 0.25, 0xd9dde0);
-    addBox(-5.25, 1.5, -1, 0.25, 3, 11, 0xd9dde0);
-    addBox(5.25, 1.5, -1, 0.25, 3, 11, 0xd9dde0);
+    // Simple room.
+    worldBox(0, 1.5, -6.3, 10, 3, 0.22, 0xdce0e3);
+    worldBox(-5.1, 1.5, -1.0, 0.22, 3, 10, 0xdce0e3);
+    worldBox(5.1, 1.5, -1.0, 0.22, 3, 10, 0xdce0e3);
 
-    addBox(-2.8, 0.45, -3.5, 1.4, 0.9, 0.75, 0x9b7653);
-    addBox(2.65, 0.85, -4.0, 0.75, 1.7, 0.75, 0x6f7d8f);
+    // Height-reference furniture.
+    worldBox(-2.6, 0.45, -3.5, 1.45, 0.9, 0.75, 0x9b7755);
+    worldBox(2.6, 0.88, -3.9, 0.72, 1.76, 0.72, 0x6d7c8f);
 
     // =========================================================
     // PLAYER RIG
+    //
+    // IMPORTANT:
+    // This is now an actual hierarchy.
+    //
+    // player
+    //   âââ yawBone
+    //       âââ skeletonRoot
+    //           âââ pelvisBone
+    //           â   âââ leftHip -> thigh -> knee -> shin -> foot
+    //           â   âââ rightHip -> thigh -> knee -> shin -> foot
+    //           â   âââ chestBone
+    //           â       âââ shoulders -> arms -> hands
+    //           â       âââ headBone -> cameraPitch -> camera
+    //
+    // The camera lives in the head.
+    // Looking down rotates ONLY the camera/head view, not the torso.
     // =========================================================
 
     const player = new THREE.Group();
-    player.position.set(0, 0, 2.5);
+    player.position.set(0, 0, 2.6);
     scene.add(player);
 
-    const yawObject = new THREE.Group();
-    player.add(yawObject);
+    const yawBone = new THREE.Group();
+    player.add(yawBone);
 
-    const pitchObject = new THREE.Group();
-    yawObject.add(pitchObject);
+    const skeletonRoot = new THREE.Group();
+    yawBone.add(skeletonRoot);
 
-    pitchObject.add(camera);
+    const pelvisBone = new THREE.Group();
+    pelvisBone.position.set(0, 1.00, 0);
+    skeletonRoot.add(pelvisBone);
 
-    // Body follows yaw, but not pitch.
-    // This means when you look down, the body stays physically below you
-    // instead of tilting with your camera.
-    const bodyRoot = new THREE.Group();
-    yawObject.add(bodyRoot);
+    const chestBone = new THREE.Group();
+    chestBone.position.set(0, 0.39, -0.015);
+    pelvisBone.add(chestBone);
 
-    // Slightly behind eye origin so chest does not clip into camera.
-    bodyRoot.position.z = 0.03;
+    const headBone = new THREE.Group();
+    headBone.position.set(0, 0.29, -0.005);
+    chestBone.add(headBone);
+
+    const cameraPitch = new THREE.Group();
+    // Eyes sit just slightly toward the front of the body.
+    cameraPitch.position.set(0, 0, -0.025);
+    headBone.add(cameraPitch);
+    cameraPitch.add(camera);
 
     // =========================================================
     // MATERIALS
     // =========================================================
 
     const skinMaterial = new THREE.MeshStandardMaterial({
-      color: 0xd6a078,
+      color: 0xd8a37c,
       roughness: 0.72
     });
 
     const shirtMaterial = new THREE.MeshStandardMaterial({
-      color: 0x405f91,
+      color: 0x3f608f,
       roughness: 0.86
     });
 
     const pantsMaterial = new THREE.MeshStandardMaterial({
-      color: 0x202834,
-      roughness: 0.9
+      color: 0x222b37,
+      roughness: 0.91
     });
 
     const shoeMaterial = new THREE.MeshStandardMaterial({
@@ -262,371 +297,496 @@
     });
 
     // =========================================================
-    // BODY SHAPES
-    // Using rounded-ish capsules/cylinders instead of chunky cubes.
+    // BODY-MESH HELPERS
     // =========================================================
 
-    function makeCapsule(radius, length, material, capSegments = 6, radialSegments = 10) {
-      const geometry = new THREE.CapsuleGeometry(
-        radius,
-        Math.max(0.01, length - radius * 2),
-        capSegments,
-        radialSegments
-      );
-      return new THREE.Mesh(geometry, material);
-    }
-
-    function makeEllipsoid(material, sx = 1, sy = 1, sz = 1) {
-      const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(0.5, 18, 14),
+    function ellipsoid(material) {
+      return new THREE.Mesh(
+        new THREE.SphereGeometry(0.5, 20, 16),
         material
       );
-      mesh.scale.set(sx, sy, sz);
-      return mesh;
     }
 
-    // Torso sections
-    const chest = makeEllipsoid(shirtMaterial);
-    const abdomen = makeEllipsoid(shirtMaterial);
-    const pelvis = makeEllipsoid(pantsMaterial);
+    function capsule(material) {
+      // Base capsule is approximately 1 unit tall.
+      return new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.10, 0.80, 7, 12),
+        material
+      );
+    }
 
-    bodyRoot.add(chest, abdomen, pelvis);
-
-    // Arms
-    const leftUpperArm = makeCapsule(0.06, 0.34, skinMaterial);
-    const rightUpperArm = makeCapsule(0.06, 0.34, skinMaterial);
-    const leftForearm = makeCapsule(0.055, 0.31, skinMaterial);
-    const rightForearm = makeCapsule(0.055, 0.31, skinMaterial);
-    const leftHand = makeEllipsoid(skinMaterial);
-    const rightHand = makeEllipsoid(skinMaterial);
-
-    bodyRoot.add(
-      leftUpperArm, rightUpperArm,
-      leftForearm, rightForearm,
-      leftHand, rightHand
-    );
-
-    // Legs
-    const leftThigh = makeCapsule(0.085, 0.44, pantsMaterial);
-    const rightThigh = makeCapsule(0.085, 0.44, pantsMaterial);
-    const leftShin = makeCapsule(0.072, 0.42, pantsMaterial);
-    const rightShin = makeCapsule(0.072, 0.42, pantsMaterial);
-
-    const leftFoot = makeEllipsoid(shoeMaterial);
-    const rightFoot = makeEllipsoid(shoeMaterial);
-
-    bodyRoot.add(
-      leftThigh, rightThigh,
-      leftShin, rightShin,
-      leftFoot, rightFoot
-    );
+    function setCapsuleDimensions(mesh, radius, length) {
+      // Base capsule radius is 0.10 and total height is 1.0.
+      mesh.scale.set(
+        radius / 0.10,
+        length,
+        radius / 0.10
+      );
+    }
 
     // =========================================================
-    // PROFILES
+    // TORSO MESHES
     // =========================================================
 
-    const starterProfile = {
+    const pelvisMesh = ellipsoid(pantsMaterial);
+    pelvisBone.add(pelvisMesh);
+
+    const abdomenMesh = ellipsoid(shirtMaterial);
+    abdomenMesh.position.set(0, 0.15, -0.015);
+    pelvisBone.add(abdomenMesh);
+
+    const chestMesh = ellipsoid(shirtMaterial);
+    chestMesh.position.set(0, 0, -0.025);
+    chestBone.add(chestMesh);
+
+    // These are clothed chest-contour meshes.
+    // They start almost flat and gradually project more in the target profile.
+    const leftChestContour = ellipsoid(shirtMaterial);
+    const rightChestContour = ellipsoid(shirtMaterial);
+
+    chestBone.add(leftChestContour, rightChestContour);
+
+    // =========================================================
+    // LEG RIG
+    // =========================================================
+
+    function createLeg(side) {
+      const sign = side === "left" ? -1 : 1;
+
+      const hip = new THREE.Group();
+      pelvisBone.add(hip);
+
+      const thigh = capsule(pantsMaterial);
+      hip.add(thigh);
+
+      const knee = new THREE.Group();
+      hip.add(knee);
+
+      const shin = capsule(pantsMaterial);
+      knee.add(shin);
+
+      const ankle = new THREE.Group();
+      knee.add(ankle);
+
+      const foot = ellipsoid(shoeMaterial);
+      ankle.add(foot);
+
+      return {
+        sign,
+        hip,
+        thigh,
+        knee,
+        shin,
+        ankle,
+        foot
+      };
+    }
+
+    const leftLeg = createLeg("left");
+    const rightLeg = createLeg("right");
+
+    // =========================================================
+    // ARM RIG
+    // =========================================================
+
+    function createArm(side) {
+      const sign = side === "left" ? -1 : 1;
+
+      const shoulder = new THREE.Group();
+      chestBone.add(shoulder);
+
+      const upperArm = capsule(skinMaterial);
+      shoulder.add(upperArm);
+
+      const elbow = new THREE.Group();
+      shoulder.add(elbow);
+
+      const forearm = capsule(skinMaterial);
+      elbow.add(forearm);
+
+      const wrist = new THREE.Group();
+      elbow.add(wrist);
+
+      const hand = ellipsoid(skinMaterial);
+      wrist.add(hand);
+
+      return {
+        sign,
+        shoulder,
+        upperArm,
+        elbow,
+        forearm,
+        wrist,
+        hand
+      };
+    }
+
+    const leftArm = createArm("left");
+    const rightArm = createArm("right");
+
+    // =========================================================
+    // STARTER + TARGET PROFILES
+    //
+    // Later these will come from the character creator / chosen target.
+    // For now they prove that one rig can smoothly become another.
+    // =========================================================
+
+    const BASE_HEIGHT = 1.80;
+
+    const starter = {
       name: "Starter",
       height: 1.80,
-      shoulderWidth: 0.47,
+
+      shoulders: 0.48,
       chestWidth: 0.43,
-      chestDepth: 0.26,
-      waistWidth: 0.33,
-      hipWidth: 0.36,
-      hipDepth: 0.25,
-      upperArmRadius: 0.062,
-      forearmRadius: 0.055,
-      thighRadius: 0.088,
-      shinRadius: 0.071,
-      handScale: 1.0,
-      footScale: 1.0,
-      skin: new THREE.Color(0xd6a078),
-      shirt: new THREE.Color(0x405f91),
-      pants: new THREE.Color(0x202834)
+      chestHeight: 0.34,
+      chestDepth: 0.27,
+      chestProjection: 0.015,
+
+      waistWidth: 0.325,
+      waistDepth: 0.225,
+
+      hipWidth: 0.37,
+      hipDepth: 0.27,
+      pelvisHeight: 0.20,
+
+      upperArmRadius: 0.061,
+      forearmRadius: 0.052,
+      handWidth: 0.105,
+      handLength: 0.145,
+
+      thighRadius: 0.087,
+      shinRadius: 0.070,
+      footWidth: 0.145,
+      footLength: 0.28,
+
+      skin: new THREE.Color(0xd8a37c),
+      shirt: new THREE.Color(0x3f608f),
+      pants: new THREE.Color(0x222b37)
     };
 
-    const targetProfile = {
+    const target = {
       name: "Target",
       height: 1.55,
-      shoulderWidth: 0.385,
-      chestWidth: 0.39,
-      chestDepth: 0.34,
-      waistWidth: 0.275,
+
+      shoulders: 0.385,
+      chestWidth: 0.395,
+      chestHeight: 0.33,
+      chestDepth: 0.30,
+      chestProjection: 0.115,
+
+      waistWidth: 0.265,
+      waistDepth: 0.215,
+
       hipWidth: 0.49,
-      hipDepth: 0.34,
-      upperArmRadius: 0.052,
-      forearmRadius: 0.047,
-      thighRadius: 0.118,
-      shinRadius: 0.079,
-      handScale: 0.88,
-      footScale: 0.92,
-      skin: new THREE.Color(0xb87552),
-      shirt: new THREE.Color(0x8f3d86),
+      hipDepth: 0.345,
+      pelvisHeight: 0.22,
+
+      upperArmRadius: 0.050,
+      forearmRadius: 0.045,
+      handWidth: 0.091,
+      handLength: 0.128,
+
+      thighRadius: 0.116,
+      shinRadius: 0.078,
+      footWidth: 0.135,
+      footLength: 0.255,
+
+      skin: new THREE.Color(0xb97554),
+      shirt: new THREE.Color(0x923e88),
       pants: new THREE.Color(0x2a2230)
     };
 
-    function lerp(a, b, t) {
+    function mix(a, b, t) {
       return a + (b - a) * t;
     }
 
     // =========================================================
-    // BODY UPDATE
+    // APPLY CURRENT BODY
     // =========================================================
 
-    function setCapsuleScale(mesh, radiusBase, radiusTarget, length, baseLength) {
-      const radialScale = radiusTarget / radiusBase;
-      const verticalScale = length / baseLength;
-      mesh.scale.set(radialScale, verticalScale, radialScale);
-    }
-
-    function applyProfile(progress) {
+    function applyBody(progress) {
       const p = THREE.MathUtils.clamp(progress, 0, 1);
 
-      const height = lerp(starterProfile.height, targetProfile.height, p);
-      const shoulderWidth = lerp(starterProfile.shoulderWidth, targetProfile.shoulderWidth, p);
-      const chestWidth = lerp(starterProfile.chestWidth, targetProfile.chestWidth, p);
-      const chestDepth = lerp(starterProfile.chestDepth, targetProfile.chestDepth, p);
-      const waistWidth = lerp(starterProfile.waistWidth, targetProfile.waistWidth, p);
-      const hipWidth = lerp(starterProfile.hipWidth, targetProfile.hipWidth, p);
-      const hipDepth = lerp(starterProfile.hipDepth, targetProfile.hipDepth, p);
+      // ----- Height -----
+      const height = mix(starter.height, target.height, p);
+      const heightScale = height / BASE_HEIGHT;
 
-      const upperArmRadius = lerp(starterProfile.upperArmRadius, targetProfile.upperArmRadius, p);
-      const forearmRadius = lerp(starterProfile.forearmRadius, targetProfile.forearmRadius, p);
-      const thighRadius = lerp(starterProfile.thighRadius, targetProfile.thighRadius, p);
-      const shinRadius = lerp(starterProfile.shinRadius, targetProfile.shinRadius, p);
+      // All vertical bone spacing, including the head/camera, scales together.
+      skeletonRoot.scale.set(1, heightScale, 1);
 
-      const handScale = lerp(starterProfile.handScale, targetProfile.handScale, p);
-      const footScale = lerp(starterProfile.footScale, targetProfile.footScale, p);
+      // ----- Torso dimensions -----
+      const shoulders = mix(starter.shoulders, target.shoulders, p);
 
-      // Body proportions.
-      const eyeHeight = height * 0.935;
+      const chestWidth = mix(starter.chestWidth, target.chestWidth, p);
+      const chestHeight = mix(starter.chestHeight, target.chestHeight, p);
+      const chestDepth = mix(starter.chestDepth, target.chestDepth, p);
+      const chestProjection = mix(starter.chestProjection, target.chestProjection, p);
 
-      const chestHeight = height * 0.205;
-      const abdomenHeight = height * 0.145;
-      const pelvisHeight = height * 0.12;
+      const waistWidth = mix(starter.waistWidth, target.waistWidth, p);
+      const waistDepth = mix(starter.waistDepth, target.waistDepth, p);
 
-      const upperArmLength = height * 0.19;
-      const forearmLength = height * 0.175;
+      const hipWidth = mix(starter.hipWidth, target.hipWidth, p);
+      const hipDepth = mix(starter.hipDepth, target.hipDepth, p);
+      const pelvisHeight = mix(starter.pelvisHeight, target.pelvisHeight, p);
 
-      const thighLength = height * 0.245;
-      const shinLength = height * 0.235;
-
-      camera.position.set(0, eyeHeight, 0);
-
-      // Chest sits naturally below and slightly forward of the camera.
-      const chestY = eyeHeight - chestHeight * 0.92;
-      const abdomenY = chestY - chestHeight * 0.48 - abdomenHeight * 0.42;
-      const pelvisY = abdomenY - abdomenHeight * 0.48 - pelvisHeight * 0.42;
-
-      chest.position.set(0, chestY, -0.03);
-      chest.scale.set(
+      chestMesh.scale.set(
         chestWidth,
         chestHeight,
         chestDepth
       );
 
-      abdomen.position.set(0, abdomenY, -0.015);
-      abdomen.scale.set(
+      abdomenMesh.scale.set(
         waistWidth,
-        abdomenHeight,
-        lerp(chestDepth * 0.85, hipDepth * 0.85, 0.5)
+        0.245,
+        waistDepth
       );
 
-      pelvis.position.set(0, pelvisY, 0.005);
-      pelvis.scale.set(
+      pelvisMesh.scale.set(
         hipWidth,
         pelvisHeight,
         hipDepth
       );
 
-      // Arms hang beside the torso and a little forward.
-      const shoulderY = chestY + chestHeight * 0.18;
-      const armForward = -0.03;
+      // Clothed chest contour becomes more projected gradually.
+      const contourWidth = 0.135;
+      const contourHeight = 0.13;
+      const contourDepth = Math.max(0.02, chestProjection);
 
-      leftUpperArm.position.set(
-        -shoulderWidth * 0.58,
-        shoulderY - upperArmLength * 0.5,
-        armForward
+      leftChestContour.position.set(
+        -chestWidth * 0.22,
+        -0.015,
+        -(chestDepth * 0.44 + chestProjection * 0.28)
       );
 
-      rightUpperArm.position.set(
-        shoulderWidth * 0.58,
-        shoulderY - upperArmLength * 0.5,
-        armForward
+      rightChestContour.position.set(
+        chestWidth * 0.22,
+        -0.015,
+        -(chestDepth * 0.44 + chestProjection * 0.28)
       );
 
-      setCapsuleScale(
-        leftUpperArm,
-        0.06,
-        upperArmRadius,
-        upperArmLength,
-        0.34
-      );
-      rightUpperArm.scale.copy(leftUpperArm.scale);
-
-      leftForearm.position.set(
-        leftUpperArm.position.x,
-        leftUpperArm.position.y - upperArmLength * 0.5 - forearmLength * 0.47,
-        armForward - 0.005
+      leftChestContour.scale.set(
+        contourWidth,
+        contourHeight,
+        contourDepth
       );
 
-      rightForearm.position.set(
-        rightUpperArm.position.x,
-        rightUpperArm.position.y - upperArmLength * 0.5 - forearmLength * 0.47,
-        armForward - 0.005
-      );
+      rightChestContour.scale.copy(leftChestContour.scale);
 
-      setCapsuleScale(
-        leftForearm,
-        0.055,
-        forearmRadius,
-        forearmLength,
-        0.31
-      );
-      rightForearm.scale.copy(leftForearm.scale);
+      // ----- Arms -----
+      const upperArmRadius = mix(starter.upperArmRadius, target.upperArmRadius, p);
+      const forearmRadius = mix(starter.forearmRadius, target.forearmRadius, p);
+      const handWidth = mix(starter.handWidth, target.handWidth, p);
+      const handLength = mix(starter.handLength, target.handLength, p);
 
-      const handW = 0.105 * handScale;
-      const handH = 0.15 * handScale;
-      const handD = 0.07 * handScale;
+      const upperArmLength = 0.34;
+      const forearmLength = 0.30;
 
-      leftHand.scale.set(handW, handH, handD);
-      rightHand.scale.copy(leftHand.scale);
+      function updateArm(arm) {
+        arm.shoulder.position.set(
+          arm.sign * shoulders * 0.53,
+          0.075,
+          -0.012
+        );
 
-      leftHand.position.set(
-        leftForearm.position.x,
-        leftForearm.position.y - forearmLength * 0.47 - handH * 0.45,
-        armForward - 0.015
-      );
+        setCapsuleDimensions(
+          arm.upperArm,
+          upperArmRadius,
+          upperArmLength
+        );
 
-      rightHand.position.set(
-        rightForearm.position.x,
-        rightForearm.position.y - forearmLength * 0.47 - handH * 0.45,
-        armForward - 0.015
-      );
+        arm.upperArm.position.set(
+          0,
+          -upperArmLength * 0.50,
+          0
+        );
 
-      // Legs
-      const thighTopY = pelvisY - pelvisHeight * 0.43;
-      const legX = hipWidth * 0.22;
+        arm.elbow.position.set(
+          0,
+          -upperArmLength,
+          0
+        );
 
-      leftThigh.position.set(
-        -legX,
-        thighTopY - thighLength * 0.5,
-        0.02
-      );
+        setCapsuleDimensions(
+          arm.forearm,
+          forearmRadius,
+          forearmLength
+        );
 
-      rightThigh.position.set(
-        legX,
-        thighTopY - thighLength * 0.5,
-        0.02
-      );
+        arm.forearm.position.set(
+          0,
+          -forearmLength * 0.50,
+          -0.01
+        );
 
-      setCapsuleScale(
-        leftThigh,
-        0.085,
-        thighRadius,
-        thighLength,
-        0.44
-      );
-      rightThigh.scale.copy(leftThigh.scale);
+        arm.wrist.position.set(
+          0,
+          -forearmLength,
+          -0.015
+        );
 
-      leftShin.position.set(
-        leftThigh.position.x,
-        leftThigh.position.y - thighLength * 0.5 - shinLength * 0.48,
-        0.025
-      );
+        arm.hand.scale.set(
+          handWidth,
+          handLength,
+          handWidth * 0.58
+        );
 
-      rightShin.position.set(
-        rightThigh.position.x,
-        rightThigh.position.y - thighLength * 0.5 - shinLength * 0.48,
-        0.025
-      );
+        arm.hand.position.set(
+          0,
+          -handLength * 0.46,
+          -0.02
+        );
+      }
 
-      setCapsuleScale(
-        leftShin,
-        0.072,
-        shinRadius,
-        shinLength,
-        0.42
-      );
-      rightShin.scale.copy(leftShin.scale);
+      updateArm(leftArm);
+      updateArm(rightArm);
 
-      const footW = 0.15 * footScale;
-      const footH = 0.085 * footScale;
-      const footD = 0.29 * footScale;
+      // ----- Legs -----
+      const thighRadius = mix(starter.thighRadius, target.thighRadius, p);
+      const shinRadius = mix(starter.shinRadius, target.shinRadius, p);
+      const footWidth = mix(starter.footWidth, target.footWidth, p);
+      const footLength = mix(starter.footLength, target.footLength, p);
 
-      leftFoot.scale.set(footW, footH, footD);
-      rightFoot.scale.copy(leftFoot.scale);
+      const thighLength = 0.44;
+      const shinLength = 0.42;
 
-      leftFoot.position.set(
-        leftShin.position.x,
-        footH * 0.5,
-        -footD * 0.22
-      );
+      function updateLeg(leg) {
+        leg.hip.position.set(
+          leg.sign * hipWidth * 0.22,
+          -0.05,
+          0.015
+        );
 
-      rightFoot.position.set(
-        rightShin.position.x,
-        footH * 0.5,
-        -footD * 0.22
-      );
+        setCapsuleDimensions(
+          leg.thigh,
+          thighRadius,
+          thighLength
+        );
 
-      skinMaterial.color.copy(starterProfile.skin).lerp(targetProfile.skin, p);
-      shirtMaterial.color.copy(starterProfile.shirt).lerp(targetProfile.shirt, p);
-      pantsMaterial.color.copy(starterProfile.pants).lerp(targetProfile.pants, p);
+        leg.thigh.position.set(
+          0,
+          -thighLength * 0.50,
+          0.015
+        );
+
+        leg.knee.position.set(
+          0,
+          -thighLength,
+          0.01
+        );
+
+        setCapsuleDimensions(
+          leg.shin,
+          shinRadius,
+          shinLength
+        );
+
+        leg.shin.position.set(
+          0,
+          -shinLength * 0.50,
+          0.01
+        );
+
+        leg.ankle.position.set(
+          0,
+          -shinLength,
+          0.005
+        );
+
+        leg.foot.scale.set(
+          footWidth,
+          0.095,
+          footLength
+        );
+
+        // Forward is -Z.
+        leg.foot.position.set(
+          0,
+          -0.045,
+          -footLength * 0.34
+        );
+      }
+
+      updateLeg(leftLeg);
+      updateLeg(rightLeg);
+
+      // ----- Colors -----
+      skinMaterial.color.copy(starter.skin).lerp(target.skin, p);
+      shirtMaterial.color.copy(starter.shirt).lerp(target.shirt, p);
+      pantsMaterial.color.copy(starter.pants).lerp(target.pants, p);
     }
 
     // =========================================================
-    // TRANSFORMATION SYSTEM
+    // TRANSFORMATION
     // =========================================================
 
-    let transformProgress = 0;
+    let progress = 0;
     let transforming = false;
-    let transformStartTime = 0;
+    let transformStart = 0;
 
-    const transformationDuration = 22000;
+    // Long enough to actually watch the body change.
+    const TRANSFORM_MS = 26000;
 
     const status = document.getElementById("status");
     const barFill = document.getElementById("barFill");
     const transformBtn = document.getElementById("transformBtn");
 
     function startTransformation() {
-      if (transforming || transformProgress >= 1) return;
+      if (transforming || progress >= 1) return;
 
       transforming = true;
-      transformStartTime =
-        performance.now() - transformProgress * transformationDuration;
+
+      transformStart =
+        performance.now() - progress * TRANSFORM_MS;
 
       transformBtn.textContent = "TRANSFORMINGâ¦";
+
       status.textContent =
-        "Transformation underway â look down and watch your body gradually change.";
+        "Transformation started â keep looking down while the rig changes continuously.";
     }
 
     function resetTransformation() {
       transforming = false;
-      transformProgress = 0;
-      applyProfile(0);
+      progress = 0;
+
+      applyBody(0);
 
       transformBtn.textContent = "TRANSFORM";
       barFill.style.width = "0%";
+
       status.textContent =
-        "Starter form. Drag to look around, then look down at your body.";
+        "You are back in the starter body. Drag to look around, or tap LOOK DOWN.";
     }
 
     transformBtn.addEventListener("click", startTransformation);
-    document.getElementById("resetBtn").addEventListener("click", resetTransformation);
+
+    document.getElementById("resetBtn").addEventListener(
+      "click",
+      resetTransformation
+    );
 
     // =========================================================
-    // LOOK CONTROLS
+    // FIRST-PERSON LOOK
     // =========================================================
 
     let yaw = 0;
-    let pitch = -0.26;
+    let pitch = -0.23;
 
-    const maxPitch = THREE.MathUtils.degToRad(88);
     const sensitivity = 0.0042;
+    const minPitch = THREE.MathUtils.degToRad(-88);
+    const maxPitch = THREE.MathUtils.degToRad(80);
 
     let dragging = false;
     let lastX = 0;
     let lastY = 0;
+
+    function setPitch(value) {
+      pitch = THREE.MathUtils.clamp(
+        value,
+        minPitch,
+        maxPitch
+      );
+    }
 
     function beginLook(x, y) {
       dragging = true;
@@ -644,84 +804,110 @@
       lastY = y;
 
       yaw -= dx * sensitivity;
-      pitch -= dy * sensitivity;
-
-      pitch = THREE.MathUtils.clamp(
-        pitch,
-        -maxPitch,
-        maxPitch
-      );
+      setPitch(pitch - dy * sensitivity);
     }
 
     function endLook() {
       dragging = false;
     }
 
-    renderer.domElement.addEventListener("touchstart", (e) => {
-      if (e.touches.length === 1) {
-        beginLook(e.touches[0].clientX, e.touches[0].clientY);
-      }
-    }, { passive: false });
+    renderer.domElement.addEventListener(
+      "touchstart",
+      (e) => {
+        if (e.touches.length === 1) {
+          beginLook(
+            e.touches[0].clientX,
+            e.touches[0].clientY
+          );
+        }
+      },
+      { passive: false }
+    );
 
-    renderer.domElement.addEventListener("touchmove", (e) => {
-      if (e.touches.length === 1) {
-        e.preventDefault();
-        moveLook(e.touches[0].clientX, e.touches[0].clientY);
-      }
-    }, { passive: false });
+    renderer.domElement.addEventListener(
+      "touchmove",
+      (e) => {
+        if (e.touches.length === 1) {
+          e.preventDefault();
+
+          moveLook(
+            e.touches[0].clientX,
+            e.touches[0].clientY
+          );
+        }
+      },
+      { passive: false }
+    );
 
     renderer.domElement.addEventListener("touchend", endLook);
     renderer.domElement.addEventListener("touchcancel", endLook);
 
-    renderer.domElement.addEventListener("mousedown", (e) => {
-      beginLook(e.clientX, e.clientY);
-    });
+    renderer.domElement.addEventListener(
+      "mousedown",
+      (e) => {
+        beginLook(e.clientX, e.clientY);
+      }
+    );
 
-    window.addEventListener("mousemove", (e) => {
-      moveLook(e.clientX, e.clientY);
-    });
+    window.addEventListener(
+      "mousemove",
+      (e) => {
+        moveLook(e.clientX, e.clientY);
+      }
+    );
 
     window.addEventListener("mouseup", endLook);
 
+    document.getElementById("lookBtn").addEventListener(
+      "click",
+      () => {
+        // A reliable first-person downward view for testing.
+        setPitch(THREE.MathUtils.degToRad(-72));
+      }
+    );
+
     // =========================================================
-    // ANIMATION
+    // LOOP
     // =========================================================
 
-    applyProfile(0);
+    applyBody(0);
 
     function animate(now) {
       requestAnimationFrame(animate);
 
-      yawObject.rotation.y = yaw;
-      pitchObject.rotation.x = pitch;
+      yawBone.rotation.y = yaw;
+      cameraPitch.rotation.x = pitch;
 
       if (transforming) {
-        transformProgress =
-          (now - transformStartTime) / transformationDuration;
+        progress =
+          (now - transformStart) / TRANSFORM_MS;
 
-        transformProgress = THREE.MathUtils.clamp(
-          transformProgress,
+        progress = THREE.MathUtils.clamp(
+          progress,
           0,
           1
         );
 
-        const smoothProgress =
-          transformProgress *
-          transformProgress *
-          (3 - 2 * transformProgress);
+        // Smooth but still continuously changing every rendered frame.
+        const smooth =
+          progress * progress * (3 - 2 * progress);
 
-        applyProfile(smoothProgress);
+        applyBody(smooth);
 
-        const pct = Math.round(transformProgress * 100);
-        barFill.style.width = pct + "%";
+        const percent = Math.round(progress * 100);
+
+        barFill.style.width = percent + "%";
+
         status.textContent =
-          `Transformingâ¦ ${pct}% â height and body proportions are changing continuously.`;
+          `Transformingâ¦ ${percent}% â height, torso, hips, limbs, skin and clothing are changing.`;
 
-        if (transformProgress >= 1) {
+        if (progress >= 1) {
           transforming = false;
+
           transformBtn.textContent = "COMPLETE";
+
           status.textContent =
-            "Transformation complete â the target form is fully applied.";
+            "Transformation complete â the rig now matches the target profile.";
         }
       }
 
@@ -734,21 +920,25 @@
     // RESIZE
     // =========================================================
 
-    window.addEventListener("resize", () => {
-      camera.aspect =
-        window.innerWidth / window.innerHeight;
+    window.addEventListener(
+      "resize",
+      () => {
+        camera.aspect =
+          window.innerWidth /
+          window.innerHeight;
 
-      camera.updateProjectionMatrix();
+        camera.updateProjectionMatrix();
 
-      renderer.setSize(
-        window.innerWidth,
-        window.innerHeight
-      );
+        renderer.setSize(
+          window.innerWidth,
+          window.innerHeight
+        );
 
-      renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio, 2)
-      );
-    });
+        renderer.setPixelRatio(
+          Math.min(window.devicePixelRatio, 2)
+        );
+      }
+    );
   </script>
 </body>
 </html>
