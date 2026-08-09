@@ -167,7 +167,7 @@
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game â V15 Shared-Rig Morph Prototype</div>
+      <div class="title">Transformation Game - V15 Shared-Rig Morph Prototype</div>
       <div id="status" class="status">Loading male and female rigsâ¦</div>
       <div id="debug" class="debug"></div>
     </div>
@@ -358,7 +358,7 @@
 
     function lerpTransform(targetBone, a, b, t) {
       targetBone.position.lerpVectors(a.position, b.position, t);
-      THREE.Quaternion.slerp(a.quaternion, b.quaternion, targetBone.quaternion, t);
+      targetBone.quaternion.copy(a.quaternion).slerp(b.quaternion, t);
       targetBone.scale.lerpVectors(a.scale, b.scale, t);
     }
 
