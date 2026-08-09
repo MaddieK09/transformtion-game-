@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game Prototype V8.2</title>
+  <title>Transformation Game Prototype V8.3</title>
 
   <style>
     * {
@@ -133,12 +133,12 @@
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game - V8.2 Visible Humanoid</div>
+      <div class="title">Transformation Game - V8.3 Humanoid Sculpt</div>
       <div id="status" class="status">
         Starter form. This version uses one smooth organic body surface.
       </div>
       <div id="debugInfo" class="status" style="margin-top:4px; opacity:0.72;">
-        Field elements: 0
+        Field elements: 0 | sculpt mode
       </div>
       <div class="bar">
         <div id="barFill"></div>
@@ -147,7 +147,7 @@
   </div>
 
   <div id="hint">
-    V8.2: stronger metaball field + explicit marching-cubes update
+    V8.3: separated limbs, tighter field, more human silhouette
   </div>
 
   <div id="bottomUI">
@@ -187,7 +187,7 @@
     function showFatalError(message) {
       fatalError.style.display = "block";
       fatalError.textContent =
-        "V8.2 render error\n\n" +
+        "V8.3 render error\n\n" +
         String(message) +
         "\n\nSend me a screenshot of this message.";
     }
@@ -303,12 +303,12 @@
 
     body.enableUvs = false;
     body.enableColors = false;
-    body.isolation = 80;
+    body.isolation = 92;
 
     // MarchingCubes lives in local -1..1-ish space after scale.
     // We shape it in normalized 0..1 field coordinates, then scale to human size.
-    body.scale.set(1.12, 1.92, 0.78);
-    body.position.set(0, 0.93, 0.06);
+    body.scale.set(0.92, 1.84, 0.66);
+    body.position.set(0, 0.91, 0.03);
 
     yawRoot.add(body);
 
@@ -320,10 +320,10 @@
     const starter = {
       height: 1.80,
       shoulder: 0.50,
-      chest: 0.43,
+      chest: 0.40,
       chestDepth: 0.30,
       waist: 0.34,
-      hip: 0.39,
+      hip: 0.36,
       hipDepth: 0.31,
       thigh: 0.115,
       calf: 0.085,
@@ -341,12 +341,12 @@
     const target = {
       height: 1.55,
       shoulder: 0.405,
-      chest: 0.395,
+      chest: 0.36,
       chestDepth: 0.335,
       waist: 0.275,
-      hip: 0.49,
+      hip: 0.44,
       hipDepth: 0.37,
-      thigh: 0.145,
+      thigh: 0.125,
       calf: 0.090,
       arm: 0.058,
       forearm: 0.050,
@@ -392,10 +392,9 @@
     let fieldElementCount = 0;
 
     function addBall(x, y, z, size, stretch = 1.0) {
-      // Three.js MarchingCubes expects a substantially stronger reciprocal field
-      // than the tiny values used in V8.1. These values are intentionally chunky
-      // for this visibility test, then we can sculpt them down once confirmed.
-      const strength = Math.max(0.32, size * stretch * 4.8);
+      // V8.3 tightens each metaball so neighboring anatomy can connect
+      // without melting the entire body into one capsule.
+      const strength = Math.max(0.16, size * stretch * 2.15);
       const subtract = 12.0;
 
       body.addBall(x, y, z, strength, subtract);
@@ -449,74 +448,74 @@
       const centerZ = 0.52;
 
       // ----- Head / neck -----
-      addBall(cx, headY, centerZ - 0.012, s.head * 1.15);
-      addBall(cx, headY - 0.025, centerZ + 0.005, s.head * 0.90);
+      addBall(cx, headY, centerZ - 0.012, s.head * 0.76);
+      addBall(cx, headY - 0.025, centerZ + 0.005, s.head * 0.76);
 
       addChain(
         { x: cx, y: neckY, z: centerZ },
         { x: cx, y: shoulderY + 0.01, z: centerZ },
         3,
         s.neck,
-        s.neck * 1.12
+        s.neck * 0.96
       );
 
       // ----- Shoulder / upper chest bridge -----
-      addBall(cx, shoulderY, centerZ, s.chest * 0.55);
+      addBall(cx, shoulderY, centerZ, s.chest * 0.40);
 
       addBall(
         cx - s.shoulder * 0.30,
         shoulderY,
         centerZ,
-        s.arm * 1.25
+        s.arm * 0.90
       );
 
       addBall(
         cx + s.shoulder * 0.30,
         shoulderY,
         centerZ,
-        s.arm * 1.25
+        s.arm * 0.90
       );
 
       // ----- Chest -----
       // Central volume plus left/right chest masses merged into ONE surface.
-      addBall(cx, chestY, centerZ, s.chest * 0.66);
+      addBall(cx, chestY, centerZ, s.chest * 0.48);
 
       addBall(
         cx - s.chest * 0.17,
         chestY - 0.004,
         centerZ - s.chestFront,
-        s.chest * 0.43
+        s.chest * 0.31
       );
 
       addBall(
         cx + s.chest * 0.17,
         chestY - 0.004,
         centerZ - s.chestFront,
-        s.chest * 0.43
+        s.chest * 0.31
       );
 
       // Ribcage lower bridge.
-      addBall(cx, chestY - 0.055, centerZ + 0.005, s.chest * 0.58);
+      addBall(cx, chestY - 0.055, centerZ + 0.005, s.chest * 0.42);
 
       // ----- Waist / abdomen -----
-      addBall(cx, waistY + 0.03, centerZ, s.waist * 0.72);
-      addBall(cx, waistY - 0.025, centerZ - 0.005, s.waist * 0.67);
+      addBall(cx, waistY + 0.03, centerZ, s.waist * 0.48);
+      addBall(cx, waistY - 0.025, centerZ - 0.005, s.waist * 0.45);
 
       // ----- Pelvis / hips -----
-      addBall(cx, hipY + 0.015, centerZ, s.hip * 0.58);
+      addBall(cx, hipY + 0.015, centerZ, s.hip * 0.43);
 
       addBall(
         cx - s.hip * 0.23,
         hipY,
         centerZ,
-        s.hip * 0.46
+        s.hip * 0.34
       );
 
       addBall(
         cx + s.hip * 0.23,
         hipY,
         centerZ,
-        s.hip * 0.46
+        s.hip * 0.34
       );
 
       // Back/glute fullness merges into pelvis.
@@ -524,18 +523,18 @@
         cx - s.hip * 0.15,
         hipY - 0.018,
         centerZ + s.gluteBack,
-        s.hip * 0.39
+        s.hip * 0.30
       );
 
       addBall(
         cx + s.hip * 0.15,
         hipY - 0.018,
         centerZ + s.gluteBack,
-        s.hip * 0.39
+        s.hip * 0.30
       );
 
       // ----- Legs -----
-      const legX = s.hip * 0.18;
+      const legX = s.hip * 0.30;
 
       for (const sign of [-1, 1]) {
         const x = cx + sign * legX;
@@ -545,20 +544,20 @@
           { x, y: hipY - 0.025, z: centerZ + 0.005 },
           { x, y: kneeY + 0.025, z: centerZ + 0.002 },
           5,
-          s.thigh * 1.18,
-          s.thigh * 0.74
+          s.thigh * 0.82,
+          s.thigh * 0.58
         );
 
         // Knee.
-        addBall(x, kneeY, centerZ, s.calf * 0.84);
+        addBall(x, kneeY, centerZ, s.calf * 0.70);
 
         // Calf.
         addChain(
           { x, y: kneeY - 0.015, z: centerZ + 0.004 },
           { x, y: ankleY + 0.04, z: centerZ + 0.004 },
           5,
-          s.calf * 1.05,
-          s.calf * 0.60
+          s.calf * 0.82,
+          s.calf * 0.50
         );
 
         // Foot extends forward (-Z).
@@ -566,13 +565,13 @@
           { x, y: ankleY, z: centerZ + 0.005 },
           { x, y: ankleY - 0.005, z: centerZ - 0.085 },
           4,
-          s.foot * 0.72,
+          s.foot * 0.58,
           s.foot
         );
       }
 
       // ----- Arms -----
-      const shoulderX = s.shoulder * 0.31;
+      const shoulderX = s.shoulder * 0.38;
       const elbowY = 0.68;
       const wristY = 0.54;
 
@@ -582,24 +581,24 @@
         // Upper arm angles gently inward.
         addChain(
           { x: sx, y: shoulderY - 0.005, z: centerZ },
-          { x: sx + sign * 0.015, y: elbowY, z: centerZ + 0.010 },
+          { x: sx + sign * 0.028, y: elbowY, z: centerZ + 0.010 },
           5,
-          s.arm * 1.15,
-          s.arm * 0.82
+          s.arm * 0.88,
+          s.arm * 0.70
         );
 
         // Forearm.
         addChain(
-          { x: sx + sign * 0.015, y: elbowY, z: centerZ + 0.010 },
+          { x: sx + sign * 0.028, y: elbowY, z: centerZ + 0.010 },
           { x: sx + sign * 0.010, y: wristY, z: centerZ - 0.002 },
           4,
           s.forearm,
-          s.forearm * 0.72
+          s.forearm * 0.62
         );
 
         // Hand.
         addBall(
-          sx + sign * 0.010,
+          sx + sign * 0.040,
           wristY - 0.035,
           centerZ - 0.008,
           s.hand
@@ -645,8 +644,8 @@
       // body.position.y is center-ish of MarchingCubes volume.
       cameraPivot.position.set(
         0,
-        1.68 * heightScale,
-        -0.12
+        1.61 * heightScale,
+        -0.08
       );
     }
 
@@ -726,7 +725,7 @@
         document.getElementById("viewBtn").textContent = "BODY VIEW";
 
         // Moderate downward angle to reveal torso -> legs -> feet.
-        setPitch(THREE.MathUtils.degToRad(-64));
+        setPitch(THREE.MathUtils.degToRad(-70));
       }
     );
 
@@ -852,9 +851,9 @@
         const h = currentShape.height;
 
         camera.position.set(
-          player.position.x + 1.85,
-          h * 0.72,
-          player.position.z + 3.8
+          player.position.x + 1.45,
+          h * 0.70,
+          player.position.z + 3.15
         );
 
         camera.lookAt(
