@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game V13 - Body Morph Controller</title>
+  <title>Transformation Game V14 - Compatibility Inspector</title>
 
   <style>
     * {
@@ -43,12 +43,12 @@
     }
 
     .panel {
-      max-width: 620px;
+      max-width: 680px;
       margin: auto;
       padding: 11px 13px;
       border-radius: 17px;
       color: white;
-      background: rgba(0,0,0,0.64);
+      background: rgba(0,0,0,0.66);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
     }
@@ -66,9 +66,10 @@
     }
 
     .debug {
-      margin-top: 4px;
-      font-size: 11px;
-      opacity: 0.72;
+      margin-top: 5px;
+      font-size: 10px;
+      line-height: 1.35;
+      opacity: 0.78;
       white-space: pre-line;
     }
 
@@ -78,7 +79,7 @@
       right: 8px;
       bottom: calc(env(safe-area-inset-bottom) + 8px);
       z-index: 30;
-      max-height: 44vh;
+      max-height: 43vh;
       overflow: auto;
       border-radius: 18px;
       background: rgba(12,14,18,0.92);
@@ -97,41 +98,36 @@
       border: 0;
       border-radius: 13px;
       padding: 10px 11px;
-      min-width: 96px;
+      min-width: 98px;
       color: #111;
       background: rgba(255,255,255,0.94);
       font-size: 12px;
       font-weight: 800;
     }
 
-    .controlRow {
-      padding: 9px 2px;
-      border-top: 1px solid rgba(255,255,255,0.09);
+    button:active {
+      transform: scale(0.97);
     }
 
-    .controlRow:first-of-type {
-      border-top: none;
-    }
-
-    .labelLine {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+    .section {
       color: white;
+      border-top: 1px solid rgba(255,255,255,0.09);
+      padding-top: 9px;
+      margin-top: 9px;
+    }
+
+    .section h3 {
+      margin: 0 0 5px 0;
       font-size: 12px;
-      font-weight: 800;
-      margin-bottom: 5px;
     }
 
-    .value {
-      opacity: 0.78;
-      font-weight: 700;
-      min-width: 44px;
-      text-align: right;
-    }
-
-    input[type="range"] {
-      width: 100%;
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 10px;
+      line-height: 1.35;
+      white-space: pre-wrap;
+      word-break: break-word;
+      opacity: 0.9;
     }
 
     #loading {
@@ -168,55 +164,38 @@
 
 <body>
   <div id="game"></div>
-  <div id="loading">Loading V13 body morph controllerâ¦</div>
+  <div id="loading">Loading V14 compatibility inspectorâ¦</div>
   <div id="fatal"></div>
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game â V13 Real Body Morph Controller</div>
-      <div id="status" class="status">Loading the female body morph systemâ¦</div>
+      <div class="title">Transformation Game â V14 Male/Female Compatibility Inspector</div>
+      <div id="status" class="status">Loading both real human modelsâ¦</div>
       <div id="debug" class="debug"></div>
     </div>
   </div>
 
   <div id="controls">
     <div id="buttons">
+      <button id="maleBtn">SHOW MALE</button>
+      <button id="femaleBtn">SHOW FEMALE</button>
       <button id="bodyViewBtn">BODY VIEW</button>
       <button id="lookBtn">LOOK DOWN</button>
-      <button id="resetBtn">RESET</button>
-      <button id="playBtn">PLAY TEST MORPH</button>
     </div>
 
-    <div class="controlRow">
-      <div class="labelLine">
-        <span>SKINNY</span>
-        <span id="skinnyValue" class="value">0.00</span>
-      </div>
-      <input id="skinnySlider" type="range" min="-1" max="1" step="0.01" value="0">
+    <div class="section">
+      <h3>COMPATIBILITY SUMMARY</h3>
+      <div id="summary" class="mono">Waitingâ¦</div>
     </div>
 
-    <div class="controlRow">
-      <div class="labelLine">
-        <span>MUSCULAR</span>
-        <span id="muscularValue" class="value">0.00</span>
-      </div>
-      <input id="muscularSlider" type="range" min="-1" max="1" step="0.01" value="0">
+    <div class="section">
+      <h3>MALE MODEL</h3>
+      <div id="maleInfo" class="mono">Waitingâ¦</div>
     </div>
 
-    <div class="controlRow">
-      <div class="labelLine">
-        <span>OBESE</span>
-        <span id="obeseValue" class="value">0.00</span>
-      </div>
-      <input id="obeseSlider" type="range" min="-1" max="1" step="0.01" value="0">
-    </div>
-
-    <div class="controlRow">
-      <div class="labelLine">
-        <span>TEST TRANSFORMATION PROGRESS</span>
-        <span id="progressValue" class="value">0%</span>
-      </div>
-      <input id="progressSlider" type="range" min="0" max="1" step="0.001" value="0">
+    <div class="section">
+      <h3>FEMALE MODEL</h3>
+      <div id="femaleInfo" class="mono">Waitingâ¦</div>
     </div>
   </div>
 
@@ -238,22 +217,16 @@
     const statusEl = document.getElementById("status");
     const debugEl = document.getElementById("debug");
 
-    const skinnySlider = document.getElementById("skinnySlider");
-    const muscularSlider = document.getElementById("muscularSlider");
-    const obeseSlider = document.getElementById("obeseSlider");
-    const progressSlider = document.getElementById("progressSlider");
-
-    const skinnyValue = document.getElementById("skinnyValue");
-    const muscularValue = document.getElementById("muscularValue");
-    const obeseValue = document.getElementById("obeseValue");
-    const progressValue = document.getElementById("progressValue");
+    const summaryEl = document.getElementById("summary");
+    const maleInfoEl = document.getElementById("maleInfo");
+    const femaleInfoEl = document.getElementById("femaleInfo");
 
     function fail(error) {
       console.error(error);
       loading.style.display = "none";
       fatal.style.display = "block";
       fatal.textContent =
-        "V13 ERROR\n\n" +
+        "V14 ERROR\n\n" +
         (error?.stack || error?.message || String(error)) +
         "\n\nSend me a screenshot of this red box.";
     }
@@ -288,7 +261,6 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-
     document.getElementById("game").appendChild(renderer.domElement);
 
     scene.add(new THREE.HemisphereLight(0xffffff, 0x65727b, 2.2));
@@ -327,7 +299,7 @@
     roomBox(5, 1.5, -1, 0.2, 3, 10, 0xd8dde1);
 
     // =========================================================
-    // MODEL
+    // LOADERS + HELPERS
     // =========================================================
 
     const loader = new GLTFLoader();
@@ -338,7 +310,7 @@
       });
     }
 
-    function bounds(root) {
+    function getBounds(root) {
       root.updateMatrixWorld(true);
 
       const box = new THREE.Box3().setFromObject(root);
@@ -351,189 +323,274 @@
       return { box, size, center };
     }
 
-    function normalize(root, targetHeight = 1.65) {
-      let b = bounds(root);
+    function normalizeModel(root, targetHeight) {
+      let b = getBounds(root);
 
-      const s = targetHeight / b.size.y;
-      root.scale.multiplyScalar(s);
+      if (!isFinite(b.size.y) || b.size.y <= 0.001) {
+        throw new Error("Invalid model bounds.");
+      }
+
+      const scale = targetHeight / b.size.y;
+      root.scale.multiplyScalar(scale);
       root.updateMatrixWorld(true);
 
-      b = bounds(root);
+      b = getBounds(root);
 
       root.position.x -= b.center.x;
       root.position.z -= b.center.z;
       root.position.y -= b.box.min.y;
 
       root.updateMatrixWorld(true);
+
+      return getBounds(root);
     }
 
-    let femaleRoot;
-
-    // Each logical morph name can appear on several LOD meshes.
-    const groupedMorphs = {
-      skinny: [],
-      muscular: [],
-      obese: []
-    };
-
-    function normalizeMorphName(name) {
-      return (name || "")
-        .toLowerCase()
-        .replace(/[^a-z]/g, "");
+    function unique(arr) {
+      return [...new Set(arr)];
     }
 
-    function collectGroupedMorphs(root) {
-      groupedMorphs.skinny.length = 0;
-      groupedMorphs.muscular.length = 0;
-      groupedMorphs.obese.length = 0;
+    function inspectModel(root) {
+      const meshes = [];
+      const bones = [];
+      const skins = [];
+      const morphNames = [];
+      const nodeNames = [];
 
       root.traverse(obj => {
-        if (!obj.isMesh && !obj.isSkinnedMesh) return;
+        if (obj.name) nodeNames.push(obj.name);
 
-        const dict = obj.morphTargetDictionary || {};
-        const influences = obj.morphTargetInfluences || [];
+        if (obj.isBone) {
+          bones.push(obj.name || "(unnamed bone)");
+        }
 
-        for (const [rawName, index] of Object.entries(dict)) {
-          const name = normalizeMorphName(rawName);
+        if (obj.isMesh || obj.isSkinnedMesh) {
+          const g = obj.geometry;
+          const pos = g?.attributes?.position;
+          const normal = g?.attributes?.normal;
+          const uv = g?.attributes?.uv;
+          const indexCount = g?.index?.count || 0;
 
-          let group = null;
+          const dict = obj.morphTargetDictionary || {};
 
-          if (name.includes("skinny")) group = "skinny";
-          if (name.includes("muscular")) group = "muscular";
-          if (name.includes("obese")) group = "obese";
-
-          if (!group) continue;
-
-          groupedMorphs[group].push({
-            mesh: obj,
-            index,
-            influences,
-            rawName
+          meshes.push({
+            name: obj.name || "(unnamed mesh)",
+            skinned: !!obj.isSkinnedMesh,
+            vertices: pos?.count || 0,
+            indices: indexCount,
+            normals: normal?.count || 0,
+            uvs: uv?.count || 0,
+            morphCount: Object.keys(dict).length,
+            morphNames: Object.keys(dict)
           });
+
+          morphNames.push(...Object.keys(dict));
+
+          if (obj.isSkinnedMesh && obj.skeleton) {
+            skins.push({
+              mesh: obj.name || "(unnamed mesh)",
+              boneCount: obj.skeleton.bones.length,
+              boneNames: obj.skeleton.bones.map(b => b.name || "(unnamed)")
+            });
+          }
         }
       });
+
+      const b = getBounds(root);
+
+      return {
+        bounds: {
+          width: b.size.x,
+          height: b.size.y,
+          depth: b.size.z
+        },
+        meshes,
+        meshCount: meshes.length,
+        totalVertices: meshes.reduce((n,m) => n + m.vertices, 0),
+        totalIndices: meshes.reduce((n,m) => n + m.indices, 0),
+        boneNames: unique(bones),
+        boneCount: unique(bones).length,
+        skins,
+        morphNames: unique(morphNames),
+        morphCount: unique(morphNames).length,
+        nodeNames: unique(nodeNames)
+      };
     }
 
-    function setGroupedMorph(group, value) {
-      for (const item of groupedMorphs[group]) {
-        item.influences[item.index] = value;
-      }
-    }
+    function summarizeModel(label, info) {
+      const lines = [];
 
-    function setShape(skinny, muscular, obese) {
-      setGroupedMorph("skinny", skinny);
-      setGroupedMorph("muscular", muscular);
-      setGroupedMorph("obese", obese);
-
-      skinnySlider.value = String(skinny);
-      muscularSlider.value = String(muscular);
-      obeseSlider.value = String(obese);
-
-      skinnyValue.textContent = Number(skinny).toFixed(2);
-      muscularValue.textContent = Number(muscular).toFixed(2);
-      obeseValue.textContent = Number(obese).toFixed(2);
-    }
-
-    function updateManualShape() {
-      const s = Number(skinnySlider.value);
-      const m = Number(muscularSlider.value);
-      const o = Number(obeseSlider.value);
-
-      setGroupedMorph("skinny", s);
-      setGroupedMorph("muscular", m);
-      setGroupedMorph("obese", o);
-
-      skinnyValue.textContent = s.toFixed(2);
-      muscularValue.textContent = m.toFixed(2);
-      obeseValue.textContent = o.toFixed(2);
-
-      statusEl.textContent =
-        `Manual body morph â skinny ${s.toFixed(2)}, muscular ${m.toFixed(2)}, obese ${o.toFixed(2)}`;
-    }
-
-    skinnySlider.addEventListener("input", updateManualShape);
-    muscularSlider.addEventListener("input", updateManualShape);
-    obeseSlider.addEventListener("input", updateManualShape);
-
-    // =========================================================
-    // TEST TRANSFORMATION CURVE
-    // =========================================================
-    //
-    // This is NOT yet the male->female transformation.
-    // It proves we can drive multiple REAL mesh morphs with
-    // one smooth progress value.
-    //
-    // At 0%: slightly skinny/neutral
-    // At 100%: fuller target build
-    // =========================================================
-
-    const testStart = {
-      skinny: 0.35,
-      muscular: 0.10,
-      obese: -0.20
-    };
-
-    const testEnd = {
-      skinny: -0.18,
-      muscular: 0.12,
-      obese: 0.34
-    };
-
-    function mix(a, b, t) {
-      return a + (b - a) * t;
-    }
-
-    function smoothstep(t) {
-      return t * t * (3 - 2 * t);
-    }
-
-    function applyProgress(raw) {
-      const t = smoothstep(
-        THREE.MathUtils.clamp(raw, 0, 1)
+      lines.push(`${label} dimensions`);
+      lines.push(
+        `W ${info.bounds.width.toFixed(3)} â¢ H ${info.bounds.height.toFixed(3)} â¢ D ${info.bounds.depth.toFixed(3)}`
       );
 
-      const skinny = mix(testStart.skinny, testEnd.skinny, t);
-      const muscular = mix(testStart.muscular, testEnd.muscular, t);
-      const obese = mix(testStart.obese, testEnd.obese, t);
+      lines.push(
+        `meshes ${info.meshCount} â¢ vertices ${info.totalVertices} â¢ indices ${info.totalIndices}`
+      );
 
-      setShape(skinny, muscular, obese);
+      lines.push(
+        `unique bones ${info.boneCount} â¢ unique morph names ${info.morphCount}`
+      );
 
-      progressSlider.value = String(raw);
-      progressValue.textContent = Math.round(raw * 100) + "%";
+      lines.push("");
+      lines.push("meshes:");
 
-      statusEl.textContent =
-        `Real mesh transformation test â ${Math.round(raw * 100)}%`;
+      for (const mesh of info.meshes) {
+        lines.push(
+          `- ${mesh.name} | verts ${mesh.vertices} | idx ${mesh.indices} | skinned ${mesh.skinned ? "yes" : "no"} | morphs ${mesh.morphCount}`
+        );
+
+        if (mesh.morphNames.length) {
+          lines.push(`  morphs: ${mesh.morphNames.join(", ")}`);
+        }
+      }
+
+      lines.push("");
+      lines.push("bones:");
+      lines.push(info.boneNames.join(", ") || "(none)");
+
+      return lines.join("\n");
     }
 
-    progressSlider.addEventListener("input", () => {
-      playing = false;
-      applyProgress(Number(progressSlider.value));
-    });
+    function arrayIntersection(a, b) {
+      const bSet = new Set(b);
+      return a.filter(x => bSet.has(x));
+    }
+
+    function sortedCopy(arr) {
+      return [...arr].sort();
+    }
+
+    function sameArray(a, b) {
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) return false;
+      }
+      return true;
+    }
+
+    function meshSignature(mesh) {
+      return [
+        mesh.vertices,
+        mesh.indices,
+        mesh.normals,
+        mesh.uvs
+      ].join(":");
+    }
+
+    function compareModels(male, female) {
+      const maleBoneNames = sortedCopy(male.boneNames);
+      const femaleBoneNames = sortedCopy(female.boneNames);
+
+      const commonBones = arrayIntersection(
+        maleBoneNames,
+        femaleBoneNames
+      );
+
+      const exactBoneNameMatch =
+        sameArray(maleBoneNames, femaleBoneNames);
+
+      const maleMeshSigs = male.meshes.map(meshSignature).sort();
+      const femaleMeshSigs = female.meshes.map(meshSignature).sort();
+
+      const exactMeshStructureMatch =
+        sameArray(maleMeshSigs, femaleMeshSigs);
+
+      const paired = [];
+      const count = Math.max(male.meshes.length, female.meshes.length);
+
+      for (let i = 0; i < count; i++) {
+        const m = male.meshes[i];
+        const f = female.meshes[i];
+
+        paired.push({
+          index: i,
+          male: m || null,
+          female: f || null,
+          sameVertices: !!m && !!f && m.vertices === f.vertices,
+          sameIndices: !!m && !!f && m.indices === f.indices
+        });
+      }
+
+      const allPairedTopologyMatch =
+        male.meshes.length === female.meshes.length &&
+        paired.every(x => x.sameVertices && x.sameIndices);
+
+      const commonMorphNames = arrayIntersection(
+        male.morphNames,
+        female.morphNames
+      );
+
+      const likelySameRig =
+        exactBoneNameMatch &&
+        male.boneCount > 0 &&
+        female.boneCount > 0;
+
+      let route;
+
+      if (allPairedTopologyMatch) {
+        route =
+          "ROUTE A: direct vertex interpolation is plausible. We can build a true male-to-female morph from the real endpoint meshes.";
+      } else if (likelySameRig) {
+        route =
+          "ROUTE B: meshes differ, but the skeleton appears shared. Best path is a rig-driven intermediate body plus retargeted surface deformation.";
+      } else {
+        route =
+          "ROUTE C: both topology and rig differ. We need a shared-topology bridge model for a seamless physical morph.";
+      }
+
+      return {
+        exactBoneNameMatch,
+        commonBones,
+        likelySameRig,
+        exactMeshStructureMatch,
+        allPairedTopologyMatch,
+        paired,
+        commonMorphNames,
+        route
+      };
+    }
 
     // =========================================================
-    // AUTO PLAY
+    // MODELS
     // =========================================================
 
-    let playing = false;
-    let playStart = 0;
-    const PLAY_MS = 10000;
+    let maleRoot;
+    let femaleRoot;
+    let maleInfo;
+    let femaleInfo;
+    let comparison;
 
-    document.getElementById("playBtn")
-      .addEventListener("click", () => {
-        playing = true;
-        playStart = performance.now();
-        progressSlider.value = "0";
-        applyProgress(0);
-      });
+    let activeRoot;
+    let current = "male";
 
-    document.getElementById("resetBtn")
-      .addEventListener("click", () => {
-        playing = false;
-        progressSlider.value = "0";
-        progressValue.textContent = "0%";
-        setShape(0,0,0);
-        statusEl.textContent = "All grouped body morphs reset.";
-      });
+    function showMale() {
+      current = "male";
+      maleRoot.visible = true;
+      femaleRoot.visible = false;
+      activeRoot = maleRoot;
+
+      statusEl.textContent = "Showing real male endpoint model.";
+      if (bodyView) setBodyView();
+      else setFirstPerson();
+    }
+
+    function showFemale() {
+      current = "female";
+      maleRoot.visible = false;
+      femaleRoot.visible = true;
+      activeRoot = femaleRoot;
+
+      statusEl.textContent = "Showing real female endpoint model.";
+      if (bodyView) setBodyView();
+      else setFirstPerson();
+    }
+
+    document.getElementById("maleBtn")
+      .addEventListener("click", showMale);
+
+    document.getElementById("femaleBtn")
+      .addEventListener("click", showFemale);
 
     // =========================================================
     // CAMERA
@@ -545,9 +602,9 @@
 
     function setBodyView() {
       bodyView = true;
-      if (!femaleRoot) return;
+      if (!activeRoot) return;
 
-      const b = bounds(femaleRoot);
+      const b = getBounds(activeRoot);
 
       camera.position.set(
         b.center.x + 1.5,
@@ -561,14 +618,15 @@
         b.center.z
       );
 
-      statusEl.textContent = "BODY VIEW â real female mesh.";
+      statusEl.textContent =
+        `BODY VIEW â ${current} endpoint model.`;
     }
 
     function setFirstPerson() {
       bodyView = false;
-      if (!femaleRoot) return;
+      if (!activeRoot) return;
 
-      const b = bounds(femaleRoot);
+      const b = getBounds(activeRoot);
 
       camera.position.set(
         b.center.x,
@@ -577,13 +635,17 @@
       );
 
       pitch = THREE.MathUtils.degToRad(-10);
-      statusEl.textContent = "FIRST PERSON â drag to look.";
+
+      statusEl.textContent =
+        `FIRST PERSON â ${current} endpoint model.`;
     }
 
     function lookDown() {
       if (bodyView) setFirstPerson();
       pitch = THREE.MathUtils.degToRad(-66);
-      statusEl.textContent = "LOOK DOWN â real female body.";
+
+      statusEl.textContent =
+        `LOOK DOWN â ${current} endpoint model.`;
     }
 
     document.getElementById("bodyViewBtn")
@@ -644,6 +706,7 @@
       e => {
         if (e.touches.length === 1) {
           e.preventDefault();
+
           drag(
             e.touches[0].clientX,
             e.touches[0].clientY
@@ -677,30 +740,18 @@
 
     const euler = new THREE.Euler(0,0,0,"YXZ");
 
-    // =========================================================
-    // LOOP
-    // =========================================================
-
-    function animate(now) {
+    function animate() {
       requestAnimationFrame(animate);
 
-      if (playing) {
-        let p = (now - playStart) / PLAY_MS;
+      if (!bodyView && activeRoot) {
+        setHeadVisibility(maleRoot, current !== "male");
+        setHeadVisibility(femaleRoot, current !== "female");
 
-        if (p >= 1) {
-          p = 1;
-          playing = false;
-        }
-
-        applyProgress(p);
-      }
-
-      if (!bodyView && femaleRoot) {
-        setHeadVisibility(femaleRoot, false);
         euler.set(pitch, yaw, 0);
         camera.quaternion.setFromEuler(euler);
-      } else if (femaleRoot) {
-        setHeadVisibility(femaleRoot, true);
+      } else {
+        if (maleRoot) setHeadVisibility(maleRoot, true);
+        if (femaleRoot) setHeadVisibility(femaleRoot, true);
       }
 
       renderer.render(scene, camera);
@@ -709,34 +760,79 @@
     animate();
 
     // =========================================================
-    // SETUP
+    // SETUP + COMPARISON
     // =========================================================
 
     async function setup() {
-      const gltf = await loadGLB("./adult-female-lod.glb");
+      statusEl.textContent = "Loading real male modelâ¦";
+      const maleGLTF = await loadGLB("./adult-male-lod.glb");
 
-      femaleRoot = gltf.scene;
+      statusEl.textContent = "Loading real female modelâ¦";
+      const femaleGLTF = await loadGLB("./adult-female-lod.glb");
+
+      maleRoot = maleGLTF.scene;
+      femaleRoot = femaleGLTF.scene;
+
+      scene.add(maleRoot);
       scene.add(femaleRoot);
 
-      normalize(femaleRoot, 1.65);
-      collectGroupedMorphs(femaleRoot);
+      normalizeModel(maleRoot, 1.80);
+      normalizeModel(femaleRoot, 1.65);
+
+      maleInfo = inspectModel(maleRoot);
+      femaleInfo = inspectModel(femaleRoot);
+      comparison = compareModels(maleInfo, femaleInfo);
+
+      maleInfoEl.textContent =
+        summarizeModel("MALE", maleInfo);
+
+      femaleInfoEl.textContent =
+        summarizeModel("FEMALE", femaleInfo);
+
+      const pairLines = comparison.paired.map(p => {
+        const m = p.male;
+        const f = p.female;
+
+        return [
+          `pair ${p.index + 1}:`,
+          `${m ? `${m.name} (${m.vertices}v/${m.indices}i)` : "missing male"}`,
+          " vs ",
+          `${f ? `${f.name} (${f.vertices}v/${f.indices}i)` : "missing female"}`,
+          ` -> verts ${p.sameVertices ? "MATCH" : "different"}, indices ${p.sameIndices ? "MATCH" : "different"}`
+        ].join("");
+      });
+
+      summaryEl.textContent =
+        `same number of meshes: ${maleInfo.meshCount === femaleInfo.meshCount ? "YES" : "NO"}\n` +
+        `all paired vertex/index counts match: ${comparison.allPairedTopologyMatch ? "YES" : "NO"}\n` +
+        `exact sorted mesh structure match: ${comparison.exactMeshStructureMatch ? "YES" : "NO"}\n` +
+        `male unique bones: ${maleInfo.boneCount}\n` +
+        `female unique bones: ${femaleInfo.boneCount}\n` +
+        `exact bone-name set match: ${comparison.exactBoneNameMatch ? "YES" : "NO"}\n` +
+        `common bones: ${comparison.commonBones.length}\n` +
+        `male unique morph names: ${maleInfo.morphCount}\n` +
+        `female unique morph names: ${femaleInfo.morphCount}\n` +
+        `common morph names: ${comparison.commonMorphNames.length}\n\n` +
+        `${comparison.route}\n\n` +
+        pairLines.join("\n");
 
       debugEl.textContent =
-        `Skinny targets: ${groupedMorphs.skinny.length}\n` +
-        `Muscular targets: ${groupedMorphs.muscular.length}\n` +
-        `Obese targets: ${groupedMorphs.obese.length}\n` +
-        `Total grouped targets: ${
-          groupedMorphs.skinny.length +
-          groupedMorphs.muscular.length +
-          groupedMorphs.obese.length
-        }`;
+        `Automatic route decision: ${comparison.route}`;
 
-      setShape(0,0,0);
+      femaleRoot.visible = false;
+      maleRoot.visible = true;
+      activeRoot = maleRoot;
+
       setBodyView();
 
       loading.style.display = "none";
+
       statusEl.textContent =
-        "V13 ready. Three repeated LOD morphs are now controlled as one body shape.";
+        "V14 ready. Scroll the compatibility report below.";
+
+      console.log("MALE INSPECTION", maleInfo);
+      console.log("FEMALE INSPECTION", femaleInfo);
+      console.log("COMPARISON", comparison);
     }
 
     setup().catch(fail);
@@ -744,8 +840,15 @@
     window.addEventListener("resize", () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+      renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+      );
+
+      renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio, 2)
+      );
     });
   </script>
 </body>
