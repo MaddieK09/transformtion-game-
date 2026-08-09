@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game Prototype V8.3</title>
+  <title>Transformation Game Prototype V9</title>
 
   <style>
     * {
@@ -133,12 +133,9 @@
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game - V8.3 Humanoid Sculpt</div>
+      <div class="title">Transformation Game - V9 Morph Target Humanoid</div>
       <div id="status" class="status">
-        Starter form. This version uses one smooth organic body surface.
-      </div>
-      <div id="debugInfo" class="status" style="margin-top:4px; opacity:0.72;">
-        Field elements: 0 | sculpt mode
+        Starter form. V9 uses real vertex morph targets instead of blobs.
       </div>
       <div class="bar">
         <div id="barFill"></div>
@@ -147,7 +144,7 @@
   </div>
 
   <div id="hint">
-    V8.3: separated limbs, tighter field, more human silhouette
+    V9: human-shaped mesh parts with vertex-level morphing
   </div>
 
   <div id="bottomUI">
@@ -157,51 +154,8 @@
     <button id="resetBtn" class="secondary">RESET</button>
   </div>
 
-  <div id="fatalError" style="
-    display:none;
-    position:fixed;
-    left:12px;
-    right:12px;
-    top:45%;
-    z-index:9999;
-    padding:14px;
-    border-radius:14px;
-    background:#7a1111;
-    color:white;
-    font:700 14px/1.4 Arial,sans-serif;
-    white-space:pre-wrap;
-  "></div>
-
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
-    }
-  }
-  </script>
-
   <script type="module">
-    const fatalError = document.getElementById("fatalError");
-
-    function showFatalError(message) {
-      fatalError.style.display = "block";
-      fatalError.textContent =
-        "V8.3 render error\n\n" +
-        String(message) +
-        "\n\nSend me a screenshot of this message.";
-    }
-
-    window.addEventListener("error", (event) => {
-      showFatalError(event.message || event.error || "Unknown JavaScript error");
-    });
-
-    window.addEventListener("unhandledrejection", (event) => {
-      showFatalError(event.reason || "Unhandled promise rejection");
-    });
-
-    import * as THREE from "three";
-    import { MarchingCubes } from "three/addons/objects/MarchingCubes.js";
+    import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
 
     // =========================================================
     // ENGINE
@@ -211,9 +165,9 @@
     scene.background = new THREE.Color(0x91d5f4);
 
     const camera = new THREE.PerspectiveCamera(
-      67,
+      68,
       window.innerWidth / window.innerHeight,
-      0.03,
+      0.025,
       150
     );
 
@@ -225,16 +179,17 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.shadowMap.enabled = false;
 
     document.getElementById("game").appendChild(renderer.domElement);
 
     // =========================================================
-    // WORLD
+    // ROOM
     // =========================================================
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x53616e, 2.05));
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x53616e, 2.15));
 
-    const sun = new THREE.DirectionalLight(0xffffff, 2.4);
+    const sun = new THREE.DirectionalLight(0xffffff, 2.5);
     sun.position.set(4, 9, 4);
     scene.add(sun);
 
@@ -271,7 +226,7 @@
     worldBox(2.6, 0.88, -3.9, 0.72, 1.76, 0.72, 0x6d7c8f);
 
     // =========================================================
-    // PLAYER
+    // PLAYER RIG
     // =========================================================
 
     const player = new THREE.Group();
@@ -281,342 +236,582 @@
     const yawRoot = new THREE.Group();
     player.add(yawRoot);
 
+    const bodyRoot = new THREE.Group();
+    yawRoot.add(bodyRoot);
+
     // =========================================================
-    // SMOOTH ORGANIC BODY
+    // MATERIALS
     // =========================================================
 
-    const bodyMaterial = new THREE.MeshStandardMaterial({
-      color: 0x40628f,
-      roughness: 0.72,
-      metalness: 0.0
+    const skinMaterial = new THREE.MeshStandardMaterial({
+      color: 0xd6a079,
+      roughness: 0.72
     });
 
-    // Marching cubes creates ONE continuous smooth surface from overlapping fields.
-    // Resolution 28 is a balance between smoothness and iPhone performance.
-    const body = new MarchingCubes(
-      28,
-      bodyMaterial,
-      true,
-      true,
-      120000
-    );
+    const torsoMaterial = new THREE.MeshStandardMaterial({
+      color: 0x41618f,
+      roughness: 0.84
+    });
 
-    body.enableUvs = false;
-    body.enableColors = false;
-    body.isolation = 92;
+    const lowerMaterial = new THREE.MeshStandardMaterial({
+      color: 0x222b37,
+      roughness: 0.90
+    });
 
-    // MarchingCubes lives in local -1..1-ish space after scale.
-    // We shape it in normalized 0..1 field coordinates, then scale to human size.
-    body.scale.set(0.92, 1.84, 0.66);
-    body.position.set(0, 0.91, 0.03);
-
-    yawRoot.add(body);
+    const shoeMaterial = new THREE.MeshStandardMaterial({
+      color: 0x161616,
+      roughness: 0.96
+    });
 
     // =========================================================
-    // STARTER + TARGET
-    // Values are normalized shape controls, not literal centimeters.
+    // PROFILE DATA
     // =========================================================
 
     const starter = {
       height: 1.80,
-      shoulder: 0.50,
-      chest: 0.40,
-      chestDepth: 0.30,
-      waist: 0.34,
-      hip: 0.36,
-      hipDepth: 0.31,
-      thigh: 0.115,
-      calf: 0.085,
-      arm: 0.068,
-      forearm: 0.058,
-      hand: 0.070,
-      foot: 0.090,
-      head: 0.108,
-      neck: 0.060,
-      chestFront: 0.020,
-      gluteBack: 0.025,
-      color: new THREE.Color(0x40628f)
+      eyeHeight: 1.69,
+
+      torsoHeight: 0.66,
+      shoulderW: 0.46,
+      upperChestW: 0.42,
+      chestW: 0.39,
+      ribW: 0.35,
+      waistW: 0.30,
+      highHipW: 0.34,
+      hipW: 0.37,
+      lowHipW: 0.31,
+
+      shoulderD: 0.20,
+      chestD: 0.22,
+      ribD: 0.20,
+      waistD: 0.18,
+      highHipD: 0.22,
+      hipD: 0.25,
+      lowHipD: 0.22,
+
+      chestFront: 0.018,
+      bellyFront: 0.012,
+      gluteBack: 0.035,
+
+      upperArmLength: 0.32,
+      forearmLength: 0.29,
+      upperArmTop: 0.060,
+      upperArmBottom: 0.050,
+      forearmTop: 0.048,
+      forearmBottom: 0.038,
+
+      handW: 0.090,
+      handH: 0.145,
+      handD: 0.046,
+
+      thighLength: 0.43,
+      shinLength: 0.40,
+      thighTop: 0.102,
+      thighBottom: 0.074,
+      shinTop: 0.072,
+      shinBottom: 0.050,
+
+      footW: 0.135,
+      footH: 0.080,
+      footL: 0.270,
+
+      neckW: 0.115,
+      neckD: 0.105,
+      headW: 0.155,
+      headH: 0.205,
+      headD: 0.165,
+
+      skin: new THREE.Color(0xd6a079),
+      torsoColor: new THREE.Color(0x41618f),
+      lowerColor: new THREE.Color(0x222b37)
     };
 
     const target = {
       height: 1.55,
-      shoulder: 0.405,
-      chest: 0.36,
-      chestDepth: 0.335,
-      waist: 0.275,
-      hip: 0.44,
-      hipDepth: 0.37,
-      thigh: 0.125,
-      calf: 0.090,
-      arm: 0.058,
-      forearm: 0.050,
-      hand: 0.062,
-      foot: 0.082,
-      head: 0.103,
-      neck: 0.054,
-      chestFront: 0.060,
-      gluteBack: 0.055,
-      color: new THREE.Color(0x914188)
+      eyeHeight: 1.45,
+
+      torsoHeight: 0.61,
+      shoulderW: 0.385,
+      upperChestW: 0.365,
+      chestW: 0.37,
+      ribW: 0.31,
+      waistW: 0.255,
+      highHipW: 0.42,
+      hipW: 0.47,
+      lowHipW: 0.39,
+
+      shoulderD: 0.18,
+      chestD: 0.245,
+      ribD: 0.19,
+      waistD: 0.17,
+      highHipD: 0.28,
+      hipD: 0.32,
+      lowHipD: 0.29,
+
+      chestFront: 0.070,
+      bellyFront: 0.020,
+      gluteBack: 0.085,
+
+      upperArmLength: 0.29,
+      forearmLength: 0.265,
+      upperArmTop: 0.050,
+      upperArmBottom: 0.042,
+      forearmTop: 0.041,
+      forearmBottom: 0.033,
+
+      handW: 0.082,
+      handH: 0.126,
+      handD: 0.042,
+
+      thighLength: 0.39,
+      shinLength: 0.365,
+      thighTop: 0.126,
+      thighBottom: 0.087,
+      shinTop: 0.079,
+      shinBottom: 0.048,
+
+      footW: 0.126,
+      footH: 0.074,
+      footL: 0.245,
+
+      neckW: 0.102,
+      neckD: 0.094,
+      headW: 0.145,
+      headH: 0.194,
+      headD: 0.154,
+
+      skin: new THREE.Color(0xb87555),
+      torsoColor: new THREE.Color(0x914188),
+      lowerColor: new THREE.Color(0x2a2230)
     };
 
     function mix(a, b, t) {
       return a + (b - a) * t;
     }
 
-    function shapeAt(t) {
-      return {
-        height: mix(starter.height, target.height, t),
-        shoulder: mix(starter.shoulder, target.shoulder, t),
-        chest: mix(starter.chest, target.chest, t),
-        chestDepth: mix(starter.chestDepth, target.chestDepth, t),
-        waist: mix(starter.waist, target.waist, t),
-        hip: mix(starter.hip, target.hip, t),
-        hipDepth: mix(starter.hipDepth, target.hipDepth, t),
-        thigh: mix(starter.thigh, target.thigh, t),
-        calf: mix(starter.calf, target.calf, t),
-        arm: mix(starter.arm, target.arm, t),
-        forearm: mix(starter.forearm, target.forearm, t),
-        hand: mix(starter.hand, target.hand, t),
-        foot: mix(starter.foot, target.foot, t),
-        head: mix(starter.head, target.head, t),
-        neck: mix(starter.neck, target.neck, t),
-        chestFront: mix(starter.chestFront, target.chestFront, t),
-        gluteBack: mix(starter.gluteBack, target.gluteBack, t)
-      };
+    // =========================================================
+    // MORPH-TARGET HELPERS
+    // =========================================================
+
+    function makeMorphSphere(startDims, targetDims, material, segments = 24) {
+      const geometry = new THREE.SphereGeometry(0.5, segments, 18);
+      const base = geometry.attributes.position;
+      const targetArray = new Float32Array(base.count * 3);
+
+      for (let i = 0; i < base.count; i++) {
+        const x = base.getX(i);
+        const y = base.getY(i);
+        const z = base.getZ(i);
+
+        targetArray[i * 3 + 0] = x * targetDims.x;
+        targetArray[i * 3 + 1] = y * targetDims.y;
+        targetArray[i * 3 + 2] = z * targetDims.z;
+      }
+
+      for (let i = 0; i < base.count; i++) {
+        base.setXYZ(
+          i,
+          base.getX(i) * startDims.x,
+          base.getY(i) * startDims.y,
+          base.getZ(i) * startDims.z
+        );
+      }
+
+      geometry.morphAttributes.position = [
+        new THREE.Float32BufferAttribute(targetArray, 3)
+      ];
+
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.morphTargetInfluences[0] = 0;
+
+      return mesh;
+    }
+
+    function makeMorphCylinder(start, target, material, radial = 20) {
+      // Build normalized cylinder, then map each vertex to start/target shape.
+      const geometry = new THREE.CylinderGeometry(
+        1, 1, 1,
+        radial, 6,
+        false
+      );
+
+      const base = geometry.attributes.position;
+      const targetArray = new Float32Array(base.count * 3);
+
+      for (let i = 0; i < base.count; i++) {
+        const x = base.getX(i);
+        const y = base.getY(i);
+        const z = base.getZ(i);
+
+        const u = y + 0.5; // 0 bottom -> 1 top
+
+        const sr = mix(start.bottomR, start.topR, u);
+        const tr = mix(target.bottomR, target.topR, u);
+
+        base.setXYZ(
+          i,
+          x * sr,
+          y * start.length,
+          z * sr
+        );
+
+        targetArray[i * 3 + 0] = x * tr;
+        targetArray[i * 3 + 1] = y * target.length;
+        targetArray[i * 3 + 2] = z * tr;
+      }
+
+      geometry.morphAttributes.position = [
+        new THREE.Float32BufferAttribute(targetArray, 3)
+      ];
+
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.morphTargetInfluences[0] = 0;
+
+      return mesh;
+    }
+
+    function buildTorsoGeometry(profile) {
+      const rings = [
+        { y: 0.00, w: profile.lowHipW, d: profile.lowHipD },
+        { y: 0.08, w: profile.hipW * 0.94, d: profile.hipD * 0.95 },
+        { y: 0.17, w: profile.hipW, d: profile.hipD },
+        { y: 0.28, w: profile.highHipW, d: profile.highHipD },
+        { y: 0.40, w: profile.waistW * 1.04, d: profile.waistD * 1.03 },
+        { y: 0.50, w: profile.waistW, d: profile.waistD },
+        { y: 0.61, w: profile.ribW, d: profile.ribD },
+        { y: 0.71, w: profile.chestW * 0.95, d: profile.chestD },
+        { y: 0.80, w: profile.chestW, d: profile.chestD },
+        { y: 0.89, w: profile.upperChestW, d: profile.shoulderD },
+        { y: 0.96, w: profile.shoulderW * 0.92, d: profile.shoulderD * 0.95 },
+        { y: 1.00, w: profile.neckW * 1.25, d: profile.neckD * 1.20 }
+      ];
+
+      const radial = 32;
+      const vertices = [];
+      const indices = [];
+      const uvs = [];
+
+      for (let r = 0; r < rings.length; r++) {
+        const ring = rings[r];
+
+        for (let i = 0; i < radial; i++) {
+          const a = (i / radial) * Math.PI * 2;
+          const c = Math.cos(a);
+          const s = Math.sin(a);
+
+          let x = c * ring.w * 0.5;
+          let z = s * ring.d * 0.5;
+
+          const front = Math.max(0, -s);
+          const back = Math.max(0, s);
+
+          if (ring.y >= 0.68 && ring.y <= 0.88) {
+            z -= profile.chestFront * front;
+          }
+
+          if (ring.y >= 0.36 && ring.y <= 0.60) {
+            z -= profile.bellyFront * front;
+          }
+
+          if (ring.y <= 0.28) {
+            z += profile.gluteBack * back;
+          }
+
+          vertices.push(
+            x,
+            ring.y * profile.torsoHeight,
+            z
+          );
+
+          uvs.push(i / radial, ring.y);
+        }
+      }
+
+      for (let r = 0; r < rings.length - 1; r++) {
+        for (let i = 0; i < radial; i++) {
+          const next = (i + 1) % radial;
+
+          const a = r * radial + i;
+          const b = r * radial + next;
+          const c = (r + 1) * radial + i;
+          const d = (r + 1) * radial + next;
+
+          indices.push(a, c, b);
+          indices.push(b, c, d);
+        }
+      }
+
+      const geometry = new THREE.BufferGeometry();
+
+      geometry.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(vertices, 3)
+      );
+
+      geometry.setAttribute(
+        "uv",
+        new THREE.Float32BufferAttribute(uvs, 2)
+      );
+
+      geometry.setIndex(indices);
+      geometry.computeVertexNormals();
+
+      return geometry;
+    }
+
+    function makeMorphTorso(start, target, material) {
+      const startGeo = buildTorsoGeometry(start);
+      const targetGeo = buildTorsoGeometry(target);
+
+      const targetPos = targetGeo.attributes.position;
+
+      startGeo.morphAttributes.position = [
+        new THREE.Float32BufferAttribute(
+          targetPos.array.slice(),
+          3
+        )
+      ];
+
+      const mesh = new THREE.Mesh(startGeo, material);
+      mesh.morphTargetInfluences[0] = 0;
+
+      targetGeo.dispose();
+
+      return mesh;
     }
 
     // =========================================================
-    // METABALL HELPERS
+    // BODY CONSTRUCTION
     // =========================================================
 
-    let fieldElementCount = 0;
+    const torso = makeMorphTorso(starter, target, torsoMaterial);
+    bodyRoot.add(torso);
+    torso.position.set(0, 0.83, 0.035);
 
-    function addBall(x, y, z, size, stretch = 1.0) {
-      // V8.3 tightens each metaball so neighboring anatomy can connect
-      // without melting the entire body into one capsule.
-      const strength = Math.max(0.16, size * stretch * 2.15);
-      const subtract = 12.0;
+    const neck = makeMorphCylinder(
+      {
+        topR: starter.neckW * 0.48,
+        bottomR: starter.neckW * 0.58,
+        length: 0.115
+      },
+      {
+        topR: target.neckW * 0.48,
+        bottomR: target.neckW * 0.58,
+        length: 0.105
+      },
+      skinMaterial
+    );
+    bodyRoot.add(neck);
 
-      body.addBall(x, y, z, strength, subtract);
-      fieldElementCount++;
+    const head = makeMorphSphere(
+      new THREE.Vector3(starter.headW, starter.headH, starter.headD),
+      new THREE.Vector3(target.headW, target.headH, target.headD),
+      skinMaterial,
+      28
+    );
+    bodyRoot.add(head);
+
+    function createArm(sign) {
+      const group = new THREE.Group();
+      bodyRoot.add(group);
+
+      const upper = makeMorphCylinder(
+        {
+          topR: starter.upperArmTop,
+          bottomR: starter.upperArmBottom,
+          length: starter.upperArmLength
+        },
+        {
+          topR: target.upperArmTop,
+          bottomR: target.upperArmBottom,
+          length: target.upperArmLength
+        },
+        skinMaterial
+      );
+
+      const forearm = makeMorphCylinder(
+        {
+          topR: starter.forearmTop,
+          bottomR: starter.forearmBottom,
+          length: starter.forearmLength
+        },
+        {
+          topR: target.forearmTop,
+          bottomR: target.forearmBottom,
+          length: target.forearmLength
+        },
+        skinMaterial
+      );
+
+      const hand = makeMorphSphere(
+        new THREE.Vector3(starter.handW, starter.handH, starter.handD),
+        new THREE.Vector3(target.handW, target.handH, target.handD),
+        skinMaterial,
+        20
+      );
+
+      group.add(upper, forearm, hand);
+
+      return { sign, group, upper, forearm, hand };
     }
 
-    function addChain(a, b, count, sizeA, sizeB) {
-      for (let i = 0; i < count; i++) {
-        const t = count === 1 ? 0 : i / (count - 1);
+    const leftArm = createArm(-1);
+    const rightArm = createArm(1);
 
-        addBall(
-          mix(a.x, b.x, t),
-          mix(a.y, b.y, t),
-          mix(a.z, b.z, t),
-          mix(sizeA, sizeB, t)
+    function createLeg(sign) {
+      const group = new THREE.Group();
+      bodyRoot.add(group);
+
+      const thigh = makeMorphCylinder(
+        {
+          topR: starter.thighTop,
+          bottomR: starter.thighBottom,
+          length: starter.thighLength
+        },
+        {
+          topR: target.thighTop,
+          bottomR: target.thighBottom,
+          length: target.thighLength
+        },
+        lowerMaterial,
+        22
+      );
+
+      const shin = makeMorphCylinder(
+        {
+          topR: starter.shinTop,
+          bottomR: starter.shinBottom,
+          length: starter.shinLength
+        },
+        {
+          topR: target.shinTop,
+          bottomR: target.shinBottom,
+          length: target.shinLength
+        },
+        lowerMaterial,
+        22
+      );
+
+      const foot = makeMorphSphere(
+        new THREE.Vector3(starter.footW, starter.footH, starter.footL),
+        new THREE.Vector3(target.footW, target.footH, target.footL),
+        shoeMaterial,
+        20
+      );
+
+      group.add(thigh, shin, foot);
+
+      return { sign, group, thigh, shin, foot };
+    }
+
+    const leftLeg = createLeg(-1);
+    const rightLeg = createLeg(1);
+
+    // =========================================================
+    // APPLY MORPH
+    // =========================================================
+
+    function applyMorph(p) {
+      const t = THREE.MathUtils.clamp(p, 0, 1);
+
+      torso.morphTargetInfluences[0] = t;
+      neck.morphTargetInfluences[0] = t;
+      head.morphTargetInfluences[0] = t;
+
+      for (const arm of [leftArm, rightArm]) {
+        arm.upper.morphTargetInfluences[0] = t;
+        arm.forearm.morphTargetInfluences[0] = t;
+        arm.hand.morphTargetInfluences[0] = t;
+      }
+
+      for (const leg of [leftLeg, rightLeg]) {
+        leg.thigh.morphTargetInfluences[0] = t;
+        leg.shin.morphTargetInfluences[0] = t;
+        leg.foot.morphTargetInfluences[0] = t;
+      }
+
+      // Colors
+      skinMaterial.color.copy(starter.skin).lerp(target.skin, t);
+      torsoMaterial.color.copy(starter.torsoColor).lerp(target.torsoColor, t);
+      lowerMaterial.color.copy(starter.lowerColor).lerp(target.lowerColor, t);
+
+      // Torso stays anchored near pelvis.
+      torso.position.y = mix(0.83, 0.78, t);
+
+      // Neck and head.
+      const torsoTop =
+        torso.position.y +
+        mix(starter.torsoHeight, target.torsoHeight, t);
+
+      neck.position.set(
+        0,
+        torsoTop + 0.050,
+        -0.005
+      );
+
+      head.position.set(
+        0,
+        torsoTop + 0.165,
+        0.005
+      );
+
+      // Arms.
+      const shoulderW = mix(starter.shoulderW, target.shoulderW, t);
+      const upperArmLength = mix(starter.upperArmLength, target.upperArmLength, t);
+      const forearmLength = mix(starter.forearmLength, target.forearmLength, t);
+
+      for (const arm of [leftArm, rightArm]) {
+        const sx = arm.sign * shoulderW * 0.54;
+
+        arm.upper.position.set(
+          sx,
+          torsoTop - 0.055 - upperArmLength * 0.50,
+          0.015
+        );
+
+        arm.forearm.position.set(
+          sx + arm.sign * 0.012,
+          torsoTop - 0.055 - upperArmLength - forearmLength * 0.50,
+          0.002
+        );
+
+        arm.hand.position.set(
+          sx + arm.sign * 0.018,
+          torsoTop - 0.055 - upperArmLength - forearmLength - mix(starter.handH, target.handH, t) * 0.45,
+          -0.008
+        );
+      }
+
+      // Legs.
+      const hipW = mix(starter.hipW, target.hipW, t);
+      const thighLength = mix(starter.thighLength, target.thighLength, t);
+      const shinLength = mix(starter.shinLength, target.shinLength, t);
+
+      for (const leg of [leftLeg, rightLeg]) {
+        const lx = leg.sign * hipW * 0.21;
+
+        leg.thigh.position.set(
+          lx,
+          torso.position.y - thighLength * 0.50 + 0.015,
+          0.020
+        );
+
+        leg.shin.position.set(
+          lx,
+          torso.position.y - thighLength - shinLength * 0.50 + 0.015,
+          0.010
+        );
+
+        leg.foot.position.set(
+          lx,
+          0.055,
+          -mix(starter.footL, target.footL, t) * 0.25
         );
       }
     }
 
     // =========================================================
-    // BUILD HUMAN FIELD
-    // =========================================================
-
-    function buildHuman(progress) {
-      const p = THREE.MathUtils.clamp(progress, 0, 1);
-      const s = shapeAt(p);
-
-      body.reset();
-      fieldElementCount = 0;
-
-      // Height is handled mostly by world scale to keep all proportions coherent.
-      const heightScale = s.height / starter.height;
-      body.scale.y = 1.92 * heightScale;
-
-      // Normalized center line.
-      const cx = 0.50;
-
-      // Y positions in field coordinates.
-      const ankleY = 0.08;
-      const calfY = 0.21;
-      const kneeY = 0.34;
-      const thighY = 0.47;
-      const hipY = 0.58;
-      const waistY = 0.67;
-      const chestY = 0.78;
-      const shoulderY = 0.84;
-      const neckY = 0.89;
-      const headY = 0.955;
-
-      // Z: front is smaller values because camera looks toward -Z in world.
-      const centerZ = 0.52;
-
-      // ----- Head / neck -----
-      addBall(cx, headY, centerZ - 0.012, s.head * 0.76);
-      addBall(cx, headY - 0.025, centerZ + 0.005, s.head * 0.76);
-
-      addChain(
-        { x: cx, y: neckY, z: centerZ },
-        { x: cx, y: shoulderY + 0.01, z: centerZ },
-        3,
-        s.neck,
-        s.neck * 0.96
-      );
-
-      // ----- Shoulder / upper chest bridge -----
-      addBall(cx, shoulderY, centerZ, s.chest * 0.40);
-
-      addBall(
-        cx - s.shoulder * 0.30,
-        shoulderY,
-        centerZ,
-        s.arm * 0.90
-      );
-
-      addBall(
-        cx + s.shoulder * 0.30,
-        shoulderY,
-        centerZ,
-        s.arm * 0.90
-      );
-
-      // ----- Chest -----
-      // Central volume plus left/right chest masses merged into ONE surface.
-      addBall(cx, chestY, centerZ, s.chest * 0.48);
-
-      addBall(
-        cx - s.chest * 0.17,
-        chestY - 0.004,
-        centerZ - s.chestFront,
-        s.chest * 0.31
-      );
-
-      addBall(
-        cx + s.chest * 0.17,
-        chestY - 0.004,
-        centerZ - s.chestFront,
-        s.chest * 0.31
-      );
-
-      // Ribcage lower bridge.
-      addBall(cx, chestY - 0.055, centerZ + 0.005, s.chest * 0.42);
-
-      // ----- Waist / abdomen -----
-      addBall(cx, waistY + 0.03, centerZ, s.waist * 0.48);
-      addBall(cx, waistY - 0.025, centerZ - 0.005, s.waist * 0.45);
-
-      // ----- Pelvis / hips -----
-      addBall(cx, hipY + 0.015, centerZ, s.hip * 0.43);
-
-      addBall(
-        cx - s.hip * 0.23,
-        hipY,
-        centerZ,
-        s.hip * 0.34
-      );
-
-      addBall(
-        cx + s.hip * 0.23,
-        hipY,
-        centerZ,
-        s.hip * 0.34
-      );
-
-      // Back/glute fullness merges into pelvis.
-      addBall(
-        cx - s.hip * 0.15,
-        hipY - 0.018,
-        centerZ + s.gluteBack,
-        s.hip * 0.30
-      );
-
-      addBall(
-        cx + s.hip * 0.15,
-        hipY - 0.018,
-        centerZ + s.gluteBack,
-        s.hip * 0.30
-      );
-
-      // ----- Legs -----
-      const legX = s.hip * 0.30;
-
-      for (const sign of [-1, 1]) {
-        const x = cx + sign * legX;
-
-        // Thigh from hip to knee.
-        addChain(
-          { x, y: hipY - 0.025, z: centerZ + 0.005 },
-          { x, y: kneeY + 0.025, z: centerZ + 0.002 },
-          5,
-          s.thigh * 0.82,
-          s.thigh * 0.58
-        );
-
-        // Knee.
-        addBall(x, kneeY, centerZ, s.calf * 0.70);
-
-        // Calf.
-        addChain(
-          { x, y: kneeY - 0.015, z: centerZ + 0.004 },
-          { x, y: ankleY + 0.04, z: centerZ + 0.004 },
-          5,
-          s.calf * 0.82,
-          s.calf * 0.50
-        );
-
-        // Foot extends forward (-Z).
-        addChain(
-          { x, y: ankleY, z: centerZ + 0.005 },
-          { x, y: ankleY - 0.005, z: centerZ - 0.085 },
-          4,
-          s.foot * 0.58,
-          s.foot
-        );
-      }
-
-      // ----- Arms -----
-      const shoulderX = s.shoulder * 0.38;
-      const elbowY = 0.68;
-      const wristY = 0.54;
-
-      for (const sign of [-1, 1]) {
-        const sx = cx + sign * shoulderX;
-
-        // Upper arm angles gently inward.
-        addChain(
-          { x: sx, y: shoulderY - 0.005, z: centerZ },
-          { x: sx + sign * 0.028, y: elbowY, z: centerZ + 0.010 },
-          5,
-          s.arm * 0.88,
-          s.arm * 0.70
-        );
-
-        // Forearm.
-        addChain(
-          { x: sx + sign * 0.028, y: elbowY, z: centerZ + 0.010 },
-          { x: sx + sign * 0.010, y: wristY, z: centerZ - 0.002 },
-          4,
-          s.forearm,
-          s.forearm * 0.62
-        );
-
-        // Hand.
-        addBall(
-          sx + sign * 0.040,
-          wristY - 0.035,
-          centerZ - 0.008,
-          s.hand
-        );
-      }
-
-      bodyMaterial.color.copy(starter.color).lerp(target.color, p);
-
-      // Force the isosurface to regenerate now instead of relying only on render hooks.
-      body.update();
-
-      document.getElementById("debugInfo").textContent =
-        "Field elements: " + fieldElementCount +
-        " | isolation: " + body.isolation;
-    }
-
-    // =========================================================
-    // CAMERA / FIRST PERSON
+    // CAMERA
     // =========================================================
 
     const cameraPivot = new THREE.Group();
@@ -629,23 +824,20 @@
 
     const sensitivity = 0.0040;
 
-    const minPitch = THREE.MathUtils.degToRad(-88);
+    const minPitch = THREE.MathUtils.degToRad(-89);
     const maxPitch = THREE.MathUtils.degToRad(70);
 
     let dragging = false;
     let lastX = 0;
     let lastY = 0;
 
-    function updateFirstPersonCamera(progress) {
-      const s = shapeAt(progress);
-      const heightScale = s.height / starter.height;
+    function updateFirstPersonCamera(t) {
+      const eyeHeight = mix(starter.eyeHeight, target.eyeHeight, t);
 
-      // Eyes positioned anatomically above and in front of chest.
-      // body.position.y is center-ish of MarchingCubes volume.
       cameraPivot.position.set(
         0,
-        1.61 * heightScale,
-        -0.08
+        eyeHeight,
+        -0.11
       );
     }
 
@@ -723,9 +915,7 @@
       () => {
         bodyView = false;
         document.getElementById("viewBtn").textContent = "BODY VIEW";
-
-        // Moderate downward angle to reveal torso -> legs -> feet.
-        setPitch(THREE.MathUtils.degToRad(-70));
+        setPitch(THREE.MathUtils.degToRad(-68));
       }
     );
 
@@ -739,7 +929,7 @@
 
         status.textContent =
           bodyView
-            ? "Body view active. Inspect the smooth connected silhouette."
+            ? "Body view active. Inspect the actual morph-target humanoid."
             : "First person restored. Use LOOK DOWN to inspect your body.";
       }
     );
@@ -752,7 +942,7 @@
     let transforming = false;
     let transformStart = 0;
 
-    const TRANSFORM_MS = 32000;
+    const TRANSFORM_MS = 30000;
 
     const status = document.getElementById("status");
     const barFill = document.getElementById("barFill");
@@ -768,21 +958,21 @@
       transformBtn.textContent = "TRANSFORMING";
 
       status.textContent =
-        "Transformation started. The smooth body field is reshaping continuously.";
+        "Transformation started. Real mesh vertices are morphing toward the target.";
     }
 
     function resetTransformation() {
       transforming = false;
       progress = 0;
 
-      buildHuman(0);
+      applyMorph(0);
       updateFirstPersonCamera(0);
 
       transformBtn.textContent = "TRANSFORM";
       barFill.style.width = "0%";
 
       status.textContent =
-        "Starter form restored. This version uses one smooth organic body surface.";
+        "Starter form restored. V9 uses real vertex morph targets instead of blobs.";
     }
 
     transformBtn.addEventListener("click", startTransformation);
@@ -792,7 +982,7 @@
     // LOOP
     // =========================================================
 
-    buildHuman(0);
+    applyMorph(0);
     updateFirstPersonCamera(0);
 
     function animate(now) {
@@ -813,7 +1003,7 @@
         const smooth =
           progress * progress * (3 - 2 * progress);
 
-        buildHuman(smooth);
+        applyMorph(smooth);
         updateFirstPersonCamera(smooth);
 
         const percent = Math.round(progress * 100);
@@ -821,14 +1011,13 @@
 
         status.textContent =
           "Transforming... " + percent +
-          "% - the same smooth humanoid surface is changing shape.";
+          "% - real body mesh vertices are moving toward the target form.";
 
         if (progress >= 1) {
           transforming = false;
           transformBtn.textContent = "COMPLETE";
-
           status.textContent =
-            "Transformation complete. The target smooth humanoid form is fully applied.";
+            "Transformation complete. The target humanoid mesh is fully applied.";
         }
       }
 
@@ -839,19 +1028,22 @@
         }
 
         camera.rotation.set(pitch, 0, 0);
+
+        // Hide head and neck from first person so they do not block the view.
+        head.visible = false;
+        neck.visible = false;
       } else {
+        head.visible = true;
+        neck.visible = true;
+
         if (camera.parent !== scene) {
           scene.attach(camera);
         }
 
-        const currentShape = shapeAt(
-          progress * progress * (3 - 2 * progress)
-        );
-
-        const h = currentShape.height;
+        const h = mix(starter.height, target.height, progress);
 
         camera.position.set(
-          player.position.x + 1.45,
+          player.position.x + 1.5,
           h * 0.70,
           player.position.z + 3.15
         );
@@ -859,7 +1051,7 @@
         camera.lookAt(
           new THREE.Vector3(
             player.position.x,
-            h * 0.47,
+            h * 0.48,
             player.position.z
           )
         );
