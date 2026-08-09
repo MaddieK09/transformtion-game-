@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game V16 - Surface Bridge</title>
+  <title>Transformation Game V17 - Anatomical Bone Bridge</title>
 
   <style>
     * {
@@ -167,13 +167,13 @@
 
 <body>
   <div id="game"></div>
-  <div id="loading">Loading V16 and building male-to-female surface correspondenceâ¦</div>
+  <div id="loading">Loading V17 and building the anatomical bone-space bridgeâ¦</div>
   <div id="fatal"></div>
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game - V16 Surface Bridge Experiment</div>
-      <div id="status" class="status">Loading both endpoint meshesâ¦</div>
+      <div class="title">Transformation Game - V17 Anatomical Bone Bridge</div>
+      <div id="status" class="status">Loading both endpoint humansâ¦</div>
       <div id="debug" class="debug"></div>
     </div>
   </div>
@@ -183,14 +183,14 @@
       <button id="bodyViewBtn">BODY VIEW</button>
       <button id="lookBtn">LOOK DOWN</button>
       <button id="resetBtn">RESET</button>
-      <button id="playBtn">PLAY BRIDGE</button>
+      <button id="playBtn">PLAY MORPH</button>
       <button id="femaleRefBtn">FEMALE REFERENCE</button>
-      <button id="bridgeBtn">BRIDGE MESH</button>
+      <button id="bridgeBtn">BRIDGE BODY</button>
     </div>
 
     <div class="controlRow">
       <div class="labelLine">
-        <span>SURFACE BRIDGE</span>
+        <span>ANATOMICAL TRANSFORMATION</span>
         <span id="progressValue" class="value">0%</span>
       </div>
       <input id="progressSlider" type="range" min="0" max="1" step="0.001" value="0">
@@ -222,7 +222,7 @@
       loading.style.display = "none";
       fatal.style.display = "block";
       fatal.textContent =
-        "V16 ERROR\n\n" +
+        "V17 ERROR\n\n" +
         (error?.stack || error?.message || String(error)) +
         "\n\nSend me a screenshot of this red box.";
     }
@@ -295,7 +295,7 @@
     roomBox(5, 1.5, -1, 0.2, 3, 10, 0xd8dde1);
 
     // =========================================================
-    // MODEL HELPERS
+    // LOAD + NORMALIZE
     // =========================================================
 
     const loader = new GLTFLoader();
@@ -335,6 +335,7 @@
       root.position.x -= b.center.x;
       root.position.z -= b.center.z;
       root.position.y -= b.box.min.y;
+
       root.updateMatrixWorld(true);
     }
 
@@ -342,19 +343,51 @@
       const out = [];
 
       root.traverse(obj => {
-        if (obj.isMesh || obj.isSkinnedMesh) {
-          if (obj.geometry?.attributes?.position) {
-            out.push(obj);
-          }
+        if ((obj.isMesh || obj.isSkinnedMesh) && obj.geometry?.attributes?.position) {
+          out.push(obj);
         }
       });
 
       return out;
     }
 
-    function getSkinnedWorldVertex(mesh, index, target) {
+    function collectBones(root) {
+      const map = new Map();
+
+      root.traverse(obj => {
+        if (obj.isBone && obj.name) {
+          map.set(obj.name, obj);
+        }
+      });
+
+      return map;
+    }
+
+    // =========================================================
+    // BONE-SPACE TARGETING
+    // =========================================================
+
+    let maleRoot;
+    let femaleRoot;
+    let bridgeGroup;
+
+    let maleBones;
+    let femaleBones;
+
+    let bridgeParts = [];
+    let showingReference = false;
+
+    const tempWorld = new THREE.Vector3();
+    const tempBoneLocal = new THREE.Vector3();
+    const tempMapped = new THREE.Vector3();
+    const tempAccum = new THREE.Vector3();
+    const tempMatInv = new THREE.Matrix4();
+
+    function getRestWorldVertex(mesh, index, target) {
       target.fromBufferAttribute(mesh.geometry.attributes.position, index);
 
+      // These GLBs are in rest pose on load. applyBoneTransform gives
+      // the current skinned vertex using the actual skin weights.
       if (mesh.isSkinnedMesh && mesh.skeleton) {
         mesh.applyBoneTransform(index, target);
       }
@@ -362,361 +395,372 @@
       return mesh.localToWorld(target);
     }
 
-    function meshInfo(mesh) {
-      return {
-        mesh,
-        name: mesh.name || "(unnamed)",
-        vertices: mesh.geometry.attributes.position.count,
-        indices: mesh.geometry.index?.count || 0
-      };
-    }
+    function mapVertexThroughSharedBones(mesh, index, worldPos) {
+      const skinIndex = mesh.geometry.attributes.skinIndex;
+      const skinWeight = mesh.geometry.attributes.skinWeight;
 
-    // Pair each male mesh with one unused female mesh by closest vertex count.
-    function pairMeshes(maleMeshes, femaleMeshes) {
-      const femalePool = femaleMeshes.map(meshInfo);
-      const used = new Set();
-      const pairs = [];
-
-      for (const male of maleMeshes.map(meshInfo)) {
-        let best = null;
-        let bestScore = Infinity;
-
-        for (let i = 0; i < femalePool.length; i++) {
-          if (used.has(i)) continue;
-
-          const female = femalePool[i];
-
-          const vertexScore =
-            Math.abs(male.vertices - female.vertices);
-
-          const indexScore =
-            Math.abs(male.indices - female.indices) * 0.05;
-
-          const score = vertexScore + indexScore;
-
-          if (score < bestScore) {
-            bestScore = score;
-            best = { i, female };
-          }
-        }
-
-        if (!best) continue;
-
-        used.add(best.i);
-
-        pairs.push({
-          male,
-          female: best.female,
-          score: bestScore
-        });
+      if (
+        !mesh.isSkinnedMesh ||
+        !mesh.skeleton ||
+        !skinIndex ||
+        !skinWeight
+      ) {
+        return worldPos.clone();
       }
 
-      return pairs;
+      const indices = [
+        skinIndex.getX(index),
+        skinIndex.getY(index),
+        skinIndex.getZ(index),
+        skinIndex.getW(index)
+      ];
+
+      const weights = [
+        skinWeight.getX(index),
+        skinWeight.getY(index),
+        skinWeight.getZ(index),
+        skinWeight.getW(index)
+      ];
+
+      tempAccum.set(0,0,0);
+      let totalWeight = 0;
+
+      for (let k = 0; k < 4; k++) {
+        const weight = weights[k];
+        if (weight <= 0.00001) continue;
+
+        const maleBone = mesh.skeleton.bones[indices[k]];
+        if (!maleBone || !maleBone.name) continue;
+
+        const femaleBone = femaleBones.get(maleBone.name);
+        if (!femaleBone) continue;
+
+        // Convert male world position into this male bone's local space,
+        // then rebuild it in the matching female bone's world space.
+        tempMatInv.copy(maleBone.matrixWorld).invert();
+
+        tempBoneLocal
+          .copy(worldPos)
+          .applyMatrix4(tempMatInv);
+
+        tempMapped
+          .copy(tempBoneLocal)
+          .applyMatrix4(femaleBone.matrixWorld);
+
+        tempAccum.addScaledVector(tempMapped, weight);
+        totalWeight += weight;
+      }
+
+      if (totalWeight <= 0.00001) {
+        return worldPos.clone();
+      }
+
+      tempAccum.multiplyScalar(1 / totalWeight);
+      return tempAccum.clone();
     }
 
     // =========================================================
-    // SPATIAL HASH
+    // ANATOMICAL SURFACE SHAPING
     // =========================================================
 
-    const CELL = 0.045;
-
-    function hashKey(x, y, z) {
-      return `${x}|${y}|${z}`;
+    function gaussian(x, center, width) {
+      const d = (x - center) / width;
+      return Math.exp(-d * d * 0.5);
     }
 
-    function cellCoord(v) {
-      return Math.floor(v / CELL);
-    }
+    function applyAnatomicalTarget(
+      mapped,
+      maleWorld,
+      maleBounds,
+      femaleBounds
+    ) {
+      const out = mapped.clone();
 
-    function buildSpatialHash(points) {
-      const map = new Map();
+      const minY = maleBounds.box.min.y;
+      const h = maleBounds.size.y;
 
-      for (let i = 0; i < points.length; i += 3) {
-        const x = points[i];
-        const y = points[i + 1];
-        const z = points[i + 2];
+      // normalized height: feet=0, top of head=1
+      const ny = THREE.MathUtils.clamp((maleWorld.y - minY) / h, 0, 1);
 
-        const cx = cellCoord(x);
-        const cy = cellCoord(y);
-        const cz = cellCoord(z);
+      // Normalize x relative to male width.
+      const nx = maleWorld.x / Math.max(0.001, maleBounds.size.x * 0.5);
 
-        const key = hashKey(cx, cy, cz);
+      // ---------------------------------------------------------
+      // Width profile:
+      // shoulders narrower, waist narrower, pelvis/hips wider.
+      // ---------------------------------------------------------
 
-        let bucket = map.get(key);
+      const shoulderBand = gaussian(ny, 0.78, 0.075);
+      const chestBand    = gaussian(ny, 0.69, 0.095);
+      const waistBand    = gaussian(ny, 0.56, 0.075);
+      const hipBand      = gaussian(ny, 0.47, 0.085);
+      const thighBand    = gaussian(ny, 0.32, 0.13);
 
-        if (!bucket) {
-          bucket = [];
-          map.set(key, bucket);
-        }
+      let xScale = 1.0;
+      xScale -= shoulderBand * 0.10;
+      xScale -= waistBand * 0.12;
+      xScale += hipBand * 0.16;
+      xScale += thighBand * 0.055;
 
-        bucket.push(i / 3);
-      }
+      out.x *= xScale;
 
-      return map;
-    }
+      // ---------------------------------------------------------
+      // Chest shaping:
+      // TWO separate breast lobes centered left/right.
+      // Front of character is negative Z in these models.
+      // ---------------------------------------------------------
 
-    function nearestPointIndex(px, py, pz, points, hash) {
-      const cx = cellCoord(px);
-      const cy = cellCoord(py);
-      const cz = cellCoord(pz);
+      const breastY = 0.70;
+      const breastYWeight = gaussian(ny, breastY, 0.055);
 
-      let bestIndex = -1;
-      let bestDist = Infinity;
+      const leftLobe  = gaussian(nx, -0.30, 0.19);
+      const rightLobe = gaussian(nx,  0.30, 0.19);
 
-      // Expand search until we find something.
-      for (let radius = 0; radius <= 4; radius++) {
-        let foundAny = false;
+      // Sternum gap prevents one single chest blob.
+      const centerGap = 1.0 - gaussian(nx, 0.0, 0.105);
 
-        for (let dx = -radius; dx <= radius; dx++) {
-          for (let dy = -radius; dy <= radius; dy++) {
-            for (let dz = -radius; dz <= radius; dz++) {
-              // Only visit shell for radius > 0.
-              if (
-                radius > 0 &&
-                Math.abs(dx) !== radius &&
-                Math.abs(dy) !== radius &&
-                Math.abs(dz) !== radius
-              ) {
-                continue;
-              }
+      const breastWeight =
+        breastYWeight *
+        Math.max(leftLobe, rightLobe) *
+        (0.28 + centerGap * 0.72);
 
-              const bucket =
-                hash.get(hashKey(cx + dx, cy + dy, cz + dz));
+      // Only push vertices already on the front half.
+      const frontness = THREE.MathUtils.clamp(
+        (-maleWorld.z + 0.03) / 0.16,
+        0,
+        1
+      );
 
-              if (!bucket) continue;
+      out.z -= breastWeight * frontness * 0.075;
 
-              foundAny = true;
+      // Gentle lower-chest transition.
+      out.z -= chestBand * frontness * 0.008;
 
-              for (const idx of bucket) {
-                const k = idx * 3;
+      // ---------------------------------------------------------
+      // Pelvis/glute depth and abdomen smoothing.
+      // ---------------------------------------------------------
 
-                const qx = points[k];
-                const qy = points[k + 1];
-                const qz = points[k + 2];
+      const backness = THREE.MathUtils.clamp(
+        (maleWorld.z + 0.03) / 0.18,
+        0,
+        1
+      );
 
-                const ddx = qx - px;
-                const ddy = qy - py;
-                const ddz = qz - pz;
+      out.z += hipBand * backness * 0.035;
 
-                const d =
-                  ddx * ddx +
-                  ddy * ddy +
-                  ddz * ddz;
+      // Slightly flatten/narrow central abdomen.
+      const abdomenBand = gaussian(ny, 0.56, 0.10);
+      out.z *= 1.0 - abdomenBand * 0.025;
 
-                if (d < bestDist) {
-                  bestDist = d;
-                  bestIndex = idx;
-                }
-              }
-            }
-          }
-        }
+      // ---------------------------------------------------------
+      // Height alignment:
+      // Rig map already handles most of this, but ease remaining
+      // male/female normalized-height difference coherently.
+      // ---------------------------------------------------------
 
-        if (foundAny && bestIndex >= 0) {
-          return bestIndex;
-        }
-      }
+      const targetHeightRatio =
+        femaleBounds.size.y / maleBounds.size.y;
 
-      // Extremely unlikely fallback: brute force.
-      for (let i = 0; i < points.length; i += 3) {
-        const qx = points[i];
-        const qy = points[i + 1];
-        const qz = points[i + 2];
+      out.y =
+        femaleBounds.box.min.y +
+        (out.y - femaleBounds.box.min.y) *
+        THREE.MathUtils.lerp(1.0, targetHeightRatio, 0.22);
 
-        const dx = qx - px;
-        const dy = qy - py;
-        const dz = qz - pz;
-
-        const d = dx*dx + dy*dy + dz*dz;
-
-        if (d < bestDist) {
-          bestDist = d;
-          bestIndex = i / 3;
-        }
-      }
-
-      return bestIndex;
+      return out;
     }
 
     // =========================================================
-    // BRIDGE BUILD
+    // BUILD BRIDGE
     // =========================================================
-
-    let maleRoot;
-    let femaleRoot;
-
-    let bridgeGroup;
-    let bridgeParts = [];
-
-    let showingReference = false;
-
-    const tmp = new THREE.Vector3();
 
     async function buildBridge() {
-      const maleMeshes = getRenderableMeshes(maleRoot);
-      const femaleMeshes = getRenderableMeshes(femaleRoot);
+      maleRoot.updateMatrixWorld(true);
+      femaleRoot.updateMatrixWorld(true);
 
-      const pairs = pairMeshes(maleMeshes, femaleMeshes);
+      const maleBounds = getBounds(maleRoot);
+      const femaleBounds = getBounds(femaleRoot);
+
+      const maleMeshes = getRenderableMeshes(maleRoot);
 
       bridgeGroup = new THREE.Group();
-      bridgeGroup.name = "SurfaceBridge";
+      bridgeGroup.name = "V17AnatomicalBridge";
       scene.add(bridgeGroup);
 
       bridgeParts = [];
 
-      let totalVerts = 0;
+      let skinnedVertices = 0;
+      let fallbackVertices = 0;
 
-      for (let pIndex = 0; pIndex < pairs.length; pIndex++) {
-        const pair = pairs[pIndex];
+      for (let m = 0; m < maleMeshes.length; m++) {
+        const source = maleMeshes[m];
 
         statusEl.textContent =
-          `Building bridge mesh ${pIndex + 1}/${pairs.length}â¦`;
+          `Building anatomical bridge ${m + 1}/${maleMeshes.length}â¦`;
 
-        // Female rest-world positions.
-        const fCount = pair.female.vertices;
-        const femaleWorld = new Float32Array(fCount * 3);
+        const posAttr = source.geometry.attributes.position;
+        const count = posAttr.count;
 
-        for (let i = 0; i < fCount; i++) {
-          getSkinnedWorldVertex(pair.female.mesh, i, tmp);
+        const start = new Float32Array(count * 3);
+        const rigTarget = new Float32Array(count * 3);
+        const anatomyTarget = new Float32Array(count * 3);
 
-          const k = i * 3;
-          femaleWorld[k] = tmp.x;
-          femaleWorld[k + 1] = tmp.y;
-          femaleWorld[k + 2] = tmp.z;
-        }
-
-        const hash = buildSpatialHash(femaleWorld);
-
-        const mCount = pair.male.vertices;
-        const maleWorld = new Float32Array(mCount * 3);
-        const targetWorld = new Float32Array(mCount * 3);
-
-        for (let i = 0; i < mCount; i++) {
-          getSkinnedWorldVertex(pair.male.mesh, i, tmp);
+        for (let i = 0; i < count; i++) {
+          getRestWorldVertex(source, i, tempWorld);
 
           const k = i * 3;
 
-          maleWorld[k] = tmp.x;
-          maleWorld[k + 1] = tmp.y;
-          maleWorld[k + 2] = tmp.z;
+          start[k] = tempWorld.x;
+          start[k + 1] = tempWorld.y;
+          start[k + 2] = tempWorld.z;
 
-          const nearest =
-            nearestPointIndex(
-              tmp.x,
-              tmp.y,
-              tmp.z,
-              femaleWorld,
-              hash
+          const mapped =
+            mapVertexThroughSharedBones(source, i, tempWorld);
+
+          rigTarget[k] = mapped.x;
+          rigTarget[k + 1] = mapped.y;
+          rigTarget[k + 2] = mapped.z;
+
+          const anatomical =
+            applyAnatomicalTarget(
+              mapped,
+              tempWorld,
+              maleBounds,
+              femaleBounds
             );
 
-          const fk = nearest * 3;
+          anatomyTarget[k] = anatomical.x;
+          anatomyTarget[k + 1] = anatomical.y;
+          anatomyTarget[k + 2] = anatomical.z;
 
-          targetWorld[k] = femaleWorld[fk];
-          targetWorld[k + 1] = femaleWorld[fk + 1];
-          targetWorld[k + 2] = femaleWorld[fk + 2];
+          if (
+            source.isSkinnedMesh &&
+            source.geometry.attributes.skinIndex &&
+            source.geometry.attributes.skinWeight
+          ) {
+            skinnedVertices++;
+          } else {
+            fallbackVertices++;
+          }
         }
 
         const geometry = new THREE.BufferGeometry();
 
-        const live = new Float32Array(maleWorld);
         geometry.setAttribute(
           "position",
-          new THREE.BufferAttribute(live, 3)
+          new THREE.BufferAttribute(
+            new Float32Array(start),
+            3
+          )
         );
 
-        if (pair.male.mesh.geometry.index) {
-          geometry.setIndex(
-            pair.male.mesh.geometry.index.clone()
-          );
+        if (source.geometry.index) {
+          geometry.setIndex(source.geometry.index.clone());
         }
 
-        // Keep male UVs/material for this experiment.
-        const uv = pair.male.mesh.geometry.attributes.uv;
-
-        if (uv) {
-          geometry.setAttribute("uv", uv.clone());
+        if (source.geometry.attributes.uv) {
+          geometry.setAttribute(
+            "uv",
+            source.geometry.attributes.uv.clone()
+          );
         }
 
         geometry.computeVertexNormals();
 
         let material;
 
-        if (Array.isArray(pair.male.mesh.material)) {
-          material = pair.male.mesh.material.map(m => m.clone());
-        } else if (pair.male.mesh.material) {
-          material = pair.male.mesh.material.clone();
+        if (Array.isArray(source.material)) {
+          material = source.material.map(x => x.clone());
+        } else if (source.material) {
+          material = source.material.clone();
         } else {
           material = new THREE.MeshStandardMaterial({
             color: 0xd7aa8c,
-            roughness: 0.75
+            roughness: 0.74
           });
         }
 
-        const bridgeMesh = new THREE.Mesh(geometry, material);
-        bridgeMesh.frustumCulled = false;
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.frustumCulled = false;
 
-        bridgeGroup.add(bridgeMesh);
+        bridgeGroup.add(mesh);
 
         bridgeParts.push({
-          mesh: bridgeMesh,
-          maleWorld,
-          targetWorld
+          mesh,
+          start,
+          rigTarget,
+          anatomyTarget
         });
 
-        totalVerts += mCount;
-
-        // Give Safari a chance to breathe between meshes.
         await new Promise(resolve => setTimeout(resolve, 0));
       }
 
       debugEl.textContent =
-        `paired meshes: ${pairs.length}\n` +
-        `bridge vertices: ${totalVerts}\n` +
-        `correspondence: nearest female surface point\n` +
-        `endpoint models remain available as references`;
+        `shared bones: ${[...maleBones.keys()].filter(n => femaleBones.has(n)).length}\n` +
+        `bridge parts: ${bridgeParts.length}\n` +
+        `skinned vertices mapped by bone regions: ${skinnedVertices}\n` +
+        `fallback vertices: ${fallbackVertices}\n` +
+        `chest shaping: two distinct lobes + sternum gap`;
 
       maleRoot.visible = false;
       femaleRoot.visible = false;
       bridgeGroup.visible = true;
     }
 
+    // =========================================================
+    // MORPH
+    // =========================================================
+
     function smoothstep(t) {
       return t * t * (3 - 2 * t);
     }
 
+    function smootherstep(t) {
+      return t*t*t*(t*(t*6 - 15) + 10);
+    }
+
     let normalFrame = 0;
 
-    function applyBridgeProgress(raw) {
-      const t = smoothstep(
-        THREE.MathUtils.clamp(raw, 0, 1)
+    function applyProgress(raw) {
+      const p = THREE.MathUtils.clamp(raw, 0, 1);
+
+      // Stage timing:
+      // 0-65% = skeleton/bone-region relocation
+      // 35-100% = anatomical surface shaping layered in
+      const rigT = smoothstep(
+        THREE.MathUtils.clamp(p / 0.78, 0, 1)
+      );
+
+      const anatomyT = smootherstep(
+        THREE.MathUtils.clamp((p - 0.28) / 0.72, 0, 1)
       );
 
       for (const part of bridgeParts) {
-        const pos = part.mesh.geometry.attributes.position.array;
-        const a = part.maleWorld;
-        const b = part.targetWorld;
+        const live = part.mesh.geometry.attributes.position.array;
+        const a = part.start;
+        const r = part.rigTarget;
+        const f = part.anatomyTarget;
 
-        for (let i = 0; i < pos.length; i++) {
-          pos[i] = a[i] + (b[i] - a[i]) * t;
+        for (let i = 0; i < live.length; i++) {
+          const rigged = a[i] + (r[i] - a[i]) * rigT;
+          live[i] = rigged + (f[i] - r[i]) * anatomyT;
         }
 
         part.mesh.geometry.attributes.position.needsUpdate = true;
       }
 
-      // Recalculate normals occasionally while autoplaying.
       normalFrame++;
 
-      if (normalFrame % 4 === 0 || raw === 0 || raw === 1) {
+      if (normalFrame % 3 === 0 || p === 0 || p === 1) {
         for (const part of bridgeParts) {
           part.mesh.geometry.computeVertexNormals();
         }
       }
 
-      progressSlider.value = String(raw);
-      progressValue.textContent = Math.round(raw * 100) + "%";
+      progressSlider.value = String(p);
+      progressValue.textContent = Math.round(p * 100) + "%";
 
       statusEl.textContent =
-        `Surface bridge geometry â ${Math.round(raw * 100)}%`;
+        `Anatomical bridge - ${Math.round(p * 100)}%`;
     }
 
     // =========================================================
@@ -725,7 +769,7 @@
 
     let playing = false;
     let playStart = 0;
-    const PLAY_MS = 14000;
+    const PLAY_MS = 16000;
 
     document.getElementById("playBtn")
       .addEventListener("click", () => {
@@ -735,7 +779,7 @@
 
         playing = true;
         playStart = performance.now();
-        applyBridgeProgress(0);
+        applyProgress(0);
       });
 
     document.getElementById("resetBtn")
@@ -744,7 +788,7 @@
         showingReference = false;
         femaleRoot.visible = false;
         bridgeGroup.visible = true;
-        applyBridgeProgress(0);
+        applyProgress(0);
       });
 
     progressSlider.addEventListener("input", () => {
@@ -752,30 +796,36 @@
       showingReference = false;
       femaleRoot.visible = false;
       bridgeGroup.visible = true;
-      applyBridgeProgress(Number(progressSlider.value));
+      applyProgress(Number(progressSlider.value));
     });
 
     document.getElementById("femaleRefBtn")
       .addEventListener("click", () => {
         playing = false;
         showingReference = true;
+
         bridgeGroup.visible = false;
         maleRoot.visible = false;
         femaleRoot.visible = true;
 
+        setBodyView();
+
         statusEl.textContent =
-          "Real female endpoint reference. This is NOT part of the morph.";
+          "Real female endpoint reference.";
       });
 
     document.getElementById("bridgeBtn")
       .addEventListener("click", () => {
         showingReference = false;
+
         femaleRoot.visible = false;
         maleRoot.visible = false;
         bridgeGroup.visible = true;
 
+        setBodyView();
+
         statusEl.textContent =
-          "Surface bridge mesh restored.";
+          "Anatomical bridge restored.";
       });
 
     // =========================================================
@@ -787,8 +837,7 @@
     let pitch = THREE.MathUtils.degToRad(-7);
 
     function activeVisual() {
-      if (showingReference) return femaleRoot;
-      return bridgeGroup;
+      return showingReference ? femaleRoot : bridgeGroup;
     }
 
     function setBodyView() {
@@ -810,11 +859,6 @@
         b.box.min.y + b.size.y * 0.49,
         b.center.z
       );
-
-      statusEl.textContent =
-        showingReference
-          ? "BODY VIEW - real female reference."
-          : "BODY VIEW - surface bridge.";
     }
 
     function setFirstPerson() {
@@ -832,11 +876,6 @@
       );
 
       pitch = THREE.MathUtils.degToRad(-10);
-
-      statusEl.textContent =
-        showingReference
-          ? "FIRST PERSON - female reference."
-          : "FIRST PERSON - surface bridge.";
     }
 
     function lookDown() {
@@ -846,12 +885,19 @@
 
       statusEl.textContent =
         showingReference
-          ? "LOOK DOWN - female reference."
-          : "LOOK DOWN - watch the surface bridge.";
+          ? "LOOK DOWN - female endpoint."
+          : "LOOK DOWN - anatomical bridge.";
     }
 
     document.getElementById("bodyViewBtn")
-      .addEventListener("click", setBodyView);
+      .addEventListener("click", () => {
+        setBodyView();
+
+        statusEl.textContent =
+          showingReference
+            ? "BODY VIEW - female endpoint."
+            : "BODY VIEW - anatomical bridge.";
+      });
 
     document.getElementById("lookBtn")
       .addEventListener("click", lookDown);
@@ -859,6 +905,7 @@
     let dragging = false;
     let lastX = 0;
     let lastY = 0;
+
     const sensitivity = 0.004;
 
     function startDrag(x, y) {
@@ -938,7 +985,7 @@
           playing = false;
         }
 
-        applyBridgeProgress(p);
+        applyProgress(p);
       }
 
       if (!bodyView) {
@@ -971,18 +1018,24 @@
       normalizeModel(maleRoot, 1.80);
       normalizeModel(femaleRoot, 1.65);
 
+      maleBones = collectBones(maleRoot);
+      femaleBones = collectBones(femaleRoot);
+
+      maleRoot.updateMatrixWorld(true);
+      femaleRoot.updateMatrixWorld(true);
+
       maleRoot.visible = false;
       femaleRoot.visible = false;
 
       await buildBridge();
 
-      applyBridgeProgress(0);
+      applyProgress(0);
       setBodyView();
 
       loading.style.display = "none";
 
       statusEl.textContent =
-        "V16 ready. PLAY BRIDGE performs a real geometric surface morph experiment.";
+        "V17 ready. PLAY MORPH uses bone-space anatomical correspondence instead of nearest-point collapse.";
     }
 
     setup().catch(fail);
