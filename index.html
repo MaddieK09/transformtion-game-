@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game Prototype V5</title>
+  <title>Transformation Game Prototype V6</title>
 
   <style>
     * {
@@ -35,19 +35,19 @@
 
     #hud {
       position: fixed;
-      top: calc(env(safe-area-inset-top) + 10px);
-      left: 10px;
-      right: 10px;
+      top: calc(env(safe-area-inset-top) + 9px);
+      left: 9px;
+      right: 9px;
       z-index: 20;
       pointer-events: none;
     }
 
     .panel {
-      max-width: 490px;
+      max-width: 500px;
       margin: 0 auto;
-      padding: 11px 13px;
+      padding: 10px 13px;
       border-radius: 16px;
-      background: rgba(0, 0, 0, 0.58);
+      background: rgba(0, 0, 0, 0.57);
       color: white;
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
@@ -56,17 +56,17 @@
     .title {
       font-weight: 800;
       font-size: 16px;
-      margin-bottom: 6px;
+      margin-bottom: 5px;
     }
 
     .status {
       font-size: 13px;
       line-height: 1.35;
-      opacity: 0.92;
+      opacity: 0.94;
     }
 
     .bar {
-      margin-top: 9px;
+      margin-top: 8px;
       height: 9px;
       border-radius: 999px;
       background: rgba(255,255,255,0.18);
@@ -82,9 +82,9 @@
 
     #bottomUI {
       position: fixed;
-      left: 8px;
-      right: 8px;
-      bottom: calc(env(safe-area-inset-bottom) + 10px);
+      left: 7px;
+      right: 7px;
+      bottom: calc(env(safe-area-inset-bottom) + 9px);
       z-index: 30;
       display: flex;
       justify-content: center;
@@ -95,12 +95,12 @@
     button {
       border: 0;
       border-radius: 15px;
-      padding: 12px 14px;
+      padding: 12px 13px;
       font-size: 14px;
       font-weight: 800;
       color: #111;
       background: white;
-      min-width: 112px;
+      min-width: 108px;
       box-shadow: 0 6px 20px rgba(0,0,0,0.25);
     }
 
@@ -109,13 +109,13 @@
     }
 
     button.secondary {
-      background: rgba(255,255,255,0.84);
-      min-width: 95px;
+      background: rgba(255,255,255,0.85);
+      min-width: 94px;
     }
 
     #hint {
       position: fixed;
-      bottom: calc(env(safe-area-inset-bottom) + 75px);
+      bottom: calc(env(safe-area-inset-bottom) + 76px);
       left: 8px;
       right: 8px;
       text-align: center;
@@ -133,11 +133,10 @@
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game - V5 Body Geometry Test</div>
+      <div class="title">Transformation Game - V6 Human Body Test</div>
       <div id="status" class="status">
-        Starter form. Use LOOK DOWN to inspect your first-person body.
+        Starter form. Use BODY VIEW first, then test LOOK DOWN.
       </div>
-
       <div class="bar">
         <div id="barFill"></div>
       </div>
@@ -145,7 +144,7 @@
   </div>
 
   <div id="hint">
-    FIRST PERSON = eyes in head | BODY VIEW = temporary outside camera
+    One continuous deforming human body - no separate chest spheres
   </div>
 
   <div id="bottomUI">
@@ -166,7 +165,7 @@
     scene.background = new THREE.Color(0x91d5f4);
 
     const camera = new THREE.PerspectiveCamera(
-      76,
+      72,
       window.innerWidth / window.innerHeight,
       0.025,
       150
@@ -187,9 +186,9 @@
     // WORLD
     // =========================================================
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x53616e, 2.1));
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x53616e, 2.15));
 
-    const sun = new THREE.DirectionalLight(0xffffff, 2.4);
+    const sun = new THREE.DirectionalLight(0xffffff, 2.5);
     sun.position.set(4, 9, 4);
     scene.add(sun);
 
@@ -200,7 +199,6 @@
         roughness: 0.95
       })
     );
-
     floor.rotation.x = -Math.PI / 2;
     scene.add(floor);
 
@@ -212,7 +210,6 @@
           roughness: 0.84
         })
       );
-
       mesh.position.set(x, y, z);
       mesh.scale.set(sx, sy, sz);
       scene.add(mesh);
@@ -227,7 +224,7 @@
     worldBox(2.6, 0.88, -3.9, 0.72, 1.76, 0.72, 0x6d7c8f);
 
     // =========================================================
-    // PLAYER + RIG
+    // PLAYER / SKELETON
     // =========================================================
 
     const player = new THREE.Group();
@@ -237,23 +234,23 @@
     const yawBone = new THREE.Group();
     player.add(yawBone);
 
-    const skeletonRoot = new THREE.Group();
-    yawBone.add(skeletonRoot);
+    const skeleton = new THREE.Group();
+    yawBone.add(skeleton);
 
     const pelvisBone = new THREE.Group();
-    pelvisBone.position.set(0, 0.93, 0);
-    skeletonRoot.add(pelvisBone);
+    pelvisBone.position.set(0, 0.94, 0);
+    skeleton.add(pelvisBone);
 
-    const abdomenBone = new THREE.Group();
-    abdomenBone.position.set(0, 0.20, -0.005);
-    pelvisBone.add(abdomenBone);
+    const spineBone = new THREE.Group();
+    spineBone.position.set(0, 0.18, 0);
+    pelvisBone.add(spineBone);
 
     const chestBone = new THREE.Group();
-    chestBone.position.set(0, 0.22, -0.010);
-    abdomenBone.add(chestBone);
+    chestBone.position.set(0, 0.22, -0.005);
+    spineBone.add(chestBone);
 
     const neckBone = new THREE.Group();
-    neckBone.position.set(0, 0.24, -0.005);
+    neckBone.position.set(0, 0.245, -0.005);
     chestBone.add(neckBone);
 
     const headBone = new THREE.Group();
@@ -262,19 +259,11 @@
 
     const cameraPitch = new THREE.Group();
 
-    // IMPORTANT:
-    // Forward in this scene is -Z.
-    // Eyes are pushed forward from the center of the head,
-    // so the chest is behind/below the camera instead of under the lens.
-    cameraPitch.position.set(0, 0.025, -0.115);
+    // Eyes are high and clearly forward from torso center.
+    cameraPitch.position.set(0, 0.035, -0.155);
 
     headBone.add(cameraPitch);
     cameraPitch.add(camera);
-
-    // External debug camera anchor.
-    const bodyViewAnchor = new THREE.Group();
-    player.add(bodyViewAnchor);
-    bodyViewAnchor.position.set(0, 1.20, 3.1);
 
     // =========================================================
     // MATERIALS
@@ -282,17 +271,17 @@
 
     const skinMaterial = new THREE.MeshStandardMaterial({
       color: 0xd8a37c,
-      roughness: 0.72
+      roughness: 0.70
     });
 
     const shirtMaterial = new THREE.MeshStandardMaterial({
       color: 0x3f608f,
-      roughness: 0.86
+      roughness: 0.84
     });
 
     const pantsMaterial = new THREE.MeshStandardMaterial({
       color: 0x222b37,
-      roughness: 0.91
+      roughness: 0.90
     });
 
     const shoeMaterial = new THREE.MeshStandardMaterial({
@@ -301,94 +290,282 @@
     });
 
     // =========================================================
-    // BODY MESH HELPERS
+    // HUMAN-LIKE MESH HELPERS
     // =========================================================
 
-    function ellipsoid(material, segments = 22) {
+    function ellipsoid(material, segments = 24) {
       return new THREE.Mesh(
-        new THREE.SphereGeometry(0.5, segments, 16),
+        new THREE.SphereGeometry(0.5, segments, 18),
         material
       );
     }
 
-    function capsule(material) {
-      return new THREE.Mesh(
-        new THREE.CapsuleGeometry(0.10, 0.80, 7, 12),
-        material
-      );
-    }
-
-    function setCapsuleDimensions(mesh, radius, length) {
-      mesh.scale.set(
-        radius / 0.10,
+    function taperedLimb(material, topRadius, bottomRadius, length) {
+      const geometry = new THREE.CylinderGeometry(
+        bottomRadius,
+        topRadius,
         length,
-        radius / 0.10
+        16,
+        4,
+        false
       );
+      const mesh = new THREE.Mesh(geometry, material);
+      return mesh;
+    }
+
+    function createTorsoGeometry(profile) {
+      // A torso built from stacked elliptical rings in one continuous mesh.
+      // Y positions run from pelvis at 0 to upper chest at 1.
+      const rings = [
+        { y: 0.00, w: profile.lowHipW, d: profile.lowHipD },
+        { y: 0.10, w: profile.hipW, d: profile.hipD },
+        { y: 0.22, w: profile.highHipW, d: profile.highHipD },
+        { y: 0.36, w: profile.waistW, d: profile.waistD },
+        { y: 0.50, w: profile.ribLowW, d: profile.ribLowD },
+        { y: 0.66, w: profile.chestW, d: profile.chestD },
+        { y: 0.80, w: profile.upperChestW, d: profile.upperChestD },
+        { y: 0.94, w: profile.shoulderBaseW, d: profile.shoulderBaseD },
+        { y: 1.00, w: profile.neckBaseW, d: profile.neckBaseD }
+      ];
+
+      const radialSegments = 28;
+      const vertices = [];
+      const indices = [];
+      const uvs = [];
+
+      for (let r = 0; r < rings.length; r++) {
+        const ring = rings[r];
+
+        for (let i = 0; i < radialSegments; i++) {
+          const a = (i / radialSegments) * Math.PI * 2;
+
+          let x = Math.cos(a) * ring.w * 0.5;
+          let z = Math.sin(a) * ring.d * 0.5;
+
+          // Forward is -Z. Create a subtle natural front torso curve.
+          // The chest projection comes from the torso itself, not spheres.
+          const frontness = Math.max(0, -Math.sin(a));
+
+          if (ring.y >= 0.58 && ring.y <= 0.88) {
+            z -= profile.chestProjection * frontness;
+          }
+
+          if (ring.y >= 0.16 && ring.y <= 0.34) {
+            z -= profile.pelvisProjection * frontness * 0.35;
+          }
+
+          vertices.push(x, ring.y * profile.torsoHeight, z);
+          uvs.push(i / radialSegments, ring.y);
+        }
+      }
+
+      for (let r = 0; r < rings.length - 1; r++) {
+        for (let i = 0; i < radialSegments; i++) {
+          const next = (i + 1) % radialSegments;
+
+          const a = r * radialSegments + i;
+          const b = r * radialSegments + next;
+          const c = (r + 1) * radialSegments + i;
+          const d = (r + 1) * radialSegments + next;
+
+          indices.push(a, c, b);
+          indices.push(b, c, d);
+        }
+      }
+
+      const geometry = new THREE.BufferGeometry();
+
+      geometry.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(vertices, 3)
+      );
+
+      geometry.setAttribute(
+        "uv",
+        new THREE.Float32BufferAttribute(uvs, 2)
+      );
+
+      geometry.setIndex(indices);
+      geometry.computeVertexNormals();
+
+      return geometry;
     }
 
     // =========================================================
-    // TORSO
+    // STARTER / TARGET BODY PROFILES
     // =========================================================
 
-    const pelvisMesh = ellipsoid(pantsMaterial);
-    pelvisBone.add(pelvisMesh);
+    const BASE_HEIGHT = 1.80;
 
-    const lowerAbdomenMesh = ellipsoid(shirtMaterial);
-    abdomenBone.add(lowerAbdomenMesh);
+    const starter = {
+      height: 1.80,
 
-    const upperAbdomenMesh = ellipsoid(shirtMaterial);
-    abdomenBone.add(upperAbdomenMesh);
+      torsoHeight: 0.68,
 
-    const chestMesh = ellipsoid(shirtMaterial);
-    chestBone.add(chestMesh);
+      lowHipW: 0.31,
+      lowHipD: 0.22,
 
-    // Small clothed front contours.
-    const leftChestContour = ellipsoid(shirtMaterial, 18);
-    const rightChestContour = ellipsoid(shirtMaterial, 18);
-    chestBone.add(leftChestContour, rightChestContour);
+      hipW: 0.36,
+      hipD: 0.25,
 
-    // Neck gives the camera a better anatomical relationship to torso.
-    const neckMesh = capsule(skinMaterial);
+      highHipW: 0.34,
+      highHipD: 0.23,
+
+      waistW: 0.30,
+      waistD: 0.19,
+
+      ribLowW: 0.34,
+      ribLowD: 0.21,
+
+      chestW: 0.40,
+      chestD: 0.23,
+
+      upperChestW: 0.42,
+      upperChestD: 0.22,
+
+      shoulderBaseW: 0.45,
+      shoulderBaseD: 0.20,
+
+      neckBaseW: 0.15,
+      neckBaseD: 0.14,
+
+      chestProjection: 0.018,
+      pelvisProjection: 0.025,
+
+      shoulderWidth: 0.47,
+
+      upperArmTop: 0.060,
+      upperArmBottom: 0.052,
+      forearmTop: 0.050,
+      forearmBottom: 0.041,
+
+      handW: 0.095,
+      handH: 0.145,
+      handD: 0.050,
+
+      thighTop: 0.102,
+      thighBottom: 0.078,
+      calfTop: 0.075,
+      calfBottom: 0.052,
+
+      footW: 0.14,
+      footH: 0.085,
+      footL: 0.275,
+
+      skin: new THREE.Color(0xd8a37c),
+      shirt: new THREE.Color(0x3f608f),
+      pants: new THREE.Color(0x222b37)
+    };
+
+    const target = {
+      height: 1.55,
+
+      torsoHeight: 0.65,
+
+      lowHipW: 0.39,
+      lowHipD: 0.29,
+
+      hipW: 0.47,
+      hipD: 0.33,
+
+      highHipW: 0.43,
+      highHipD: 0.30,
+
+      waistW: 0.255,
+      waistD: 0.18,
+
+      ribLowW: 0.30,
+      ribLowD: 0.20,
+
+      chestW: 0.375,
+      chestD: 0.255,
+
+      upperChestW: 0.37,
+      upperChestD: 0.235,
+
+      shoulderBaseW: 0.38,
+      shoulderBaseD: 0.19,
+
+      neckBaseW: 0.135,
+      neckBaseD: 0.125,
+
+      chestProjection: 0.072,
+      pelvisProjection: 0.048,
+
+      shoulderWidth: 0.39,
+
+      upperArmTop: 0.050,
+      upperArmBottom: 0.044,
+      forearmTop: 0.043,
+      forearmBottom: 0.036,
+
+      handW: 0.084,
+      handH: 0.127,
+      handD: 0.045,
+
+      thighTop: 0.132,
+      thighBottom: 0.092,
+      calfTop: 0.082,
+      calfBottom: 0.050,
+
+      footW: 0.13,
+      footH: 0.078,
+      footL: 0.248,
+
+      skin: new THREE.Color(0xb97554),
+      shirt: new THREE.Color(0x923e88),
+      pants: new THREE.Color(0x2a2230)
+    };
+
+    function mix(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function mixedProfile(t) {
+      const result = {};
+
+      for (const key of Object.keys(starter)) {
+        if (
+          typeof starter[key] === "number" &&
+          typeof target[key] === "number"
+        ) {
+          result[key] = mix(starter[key], target[key], t);
+        }
+      }
+
+      return result;
+    }
+
+    // =========================================================
+    // CONTINUOUS TORSO
+    // =========================================================
+
+    let torsoMesh = new THREE.Mesh(
+      createTorsoGeometry(starter),
+      shirtMaterial
+    );
+
+    pelvisBone.add(torsoMesh);
+
+    // The torso geometry begins at pelvis bone and extends upward.
+    torsoMesh.position.set(0, -0.04, 0.015);
+
+    // =========================================================
+    // HEAD / NECK
+    // =========================================================
+
+    const neckMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.055, 0.068, 0.12, 18),
+      skinMaterial
+    );
     neckBone.add(neckMesh);
+    neckMesh.position.y = -0.055;
 
-    // =========================================================
-    // LEGS
-    // =========================================================
-
-    function createLeg(side) {
-      const sign = side === "left" ? -1 : 1;
-
-      const hip = new THREE.Group();
-      pelvisBone.add(hip);
-
-      const thigh = capsule(pantsMaterial);
-      hip.add(thigh);
-
-      const knee = new THREE.Group();
-      hip.add(knee);
-
-      const shin = capsule(pantsMaterial);
-      knee.add(shin);
-
-      const ankle = new THREE.Group();
-      knee.add(ankle);
-
-      const foot = ellipsoid(shoeMaterial);
-      ankle.add(foot);
-
-      return {
-        sign,
-        hip,
-        thigh,
-        knee,
-        shin,
-        ankle,
-        foot
-      };
-    }
-
-    const leftLeg = createLeg("left");
-    const rightLeg = createLeg("right");
+    // A head is mostly hidden in first person, but makes BODY VIEW human.
+    const headMesh = ellipsoid(skinMaterial, 28);
+    headBone.add(headMesh);
+    headMesh.scale.set(0.155, 0.205, 0.165);
+    headMesh.position.set(0, 0.045, 0.015);
 
     // =========================================================
     // ARMS
@@ -400,19 +577,19 @@
       const shoulder = new THREE.Group();
       chestBone.add(shoulder);
 
-      const upperArm = capsule(skinMaterial);
+      const upperArm = taperedLimb(skinMaterial, 0.060, 0.052, 0.32);
       shoulder.add(upperArm);
 
       const elbow = new THREE.Group();
       shoulder.add(elbow);
 
-      const forearm = capsule(skinMaterial);
+      const forearm = taperedLimb(skinMaterial, 0.050, 0.041, 0.29);
       elbow.add(forearm);
 
       const wrist = new THREE.Group();
       elbow.add(wrist);
 
-      const hand = ellipsoid(skinMaterial);
+      const hand = ellipsoid(skinMaterial, 20);
       wrist.add(hand);
 
       return {
@@ -430,261 +607,122 @@
     const rightArm = createArm("right");
 
     // =========================================================
-    // STARTER + TARGET
+    // LEGS
     // =========================================================
 
-    const BASE_HEIGHT = 1.80;
+    function createLeg(side) {
+      const sign = side === "left" ? -1 : 1;
 
-    const starter = {
-      height: 1.80,
+      const hip = new THREE.Group();
+      pelvisBone.add(hip);
 
-      shoulderWidth: 0.46,
+      const thigh = taperedLimb(pantsMaterial, 0.102, 0.078, 0.42);
+      hip.add(thigh);
 
-      chestWidth: 0.40,
-      chestHeight: 0.30,
-      chestDepth: 0.22,
-      chestProjection: 0.015,
+      const knee = new THREE.Group();
+      hip.add(knee);
 
-      upperWaistWidth: 0.32,
-      lowerWaistWidth: 0.30,
-      waistDepth: 0.19,
+      const calf = taperedLimb(pantsMaterial, 0.075, 0.052, 0.40);
+      knee.add(calf);
 
-      hipWidth: 0.35,
-      hipDepth: 0.24,
-      pelvisHeight: 0.18,
+      const ankle = new THREE.Group();
+      knee.add(ankle);
 
-      upperArmRadius: 0.058,
-      forearmRadius: 0.050,
-      handWidth: 0.10,
-      handLength: 0.145,
+      const foot = ellipsoid(shoeMaterial, 20);
+      ankle.add(foot);
 
-      thighRadius: 0.084,
-      shinRadius: 0.068,
-      footWidth: 0.14,
-      footLength: 0.275,
-
-      skin: new THREE.Color(0xd8a37c),
-      shirt: new THREE.Color(0x3f608f),
-      pants: new THREE.Color(0x222b37)
-    };
-
-    const target = {
-      height: 1.55,
-
-      shoulderWidth: 0.375,
-
-      chestWidth: 0.37,
-      chestHeight: 0.295,
-      chestDepth: 0.245,
-      chestProjection: 0.070,
-
-      upperWaistWidth: 0.275,
-      lowerWaistWidth: 0.255,
-      waistDepth: 0.18,
-
-      hipWidth: 0.46,
-      hipDepth: 0.31,
-      pelvisHeight: 0.195,
-
-      upperArmRadius: 0.049,
-      forearmRadius: 0.044,
-      handWidth: 0.089,
-      handLength: 0.128,
-
-      thighRadius: 0.108,
-      shinRadius: 0.075,
-      footWidth: 0.132,
-      footLength: 0.252,
-
-      skin: new THREE.Color(0xb97554),
-      shirt: new THREE.Color(0x923e88),
-      pants: new THREE.Color(0x2a2230)
-    };
-
-    function mix(a, b, t) {
-      return a + (b - a) * t;
+      return {
+        sign,
+        hip,
+        thigh,
+        knee,
+        calf,
+        ankle,
+        foot
+      };
     }
 
+    const leftLeg = createLeg("left");
+    const rightLeg = createLeg("right");
+
     // =========================================================
-    // BODY UPDATE
+    // UPDATE BODY
     // =========================================================
+
+    function rebuildTorso(profile) {
+      const oldGeometry = torsoMesh.geometry;
+      torsoMesh.geometry = createTorsoGeometry(profile);
+      oldGeometry.dispose();
+    }
 
     function applyBody(progress) {
       const p = THREE.MathUtils.clamp(progress, 0, 1);
+      const profile = mixedProfile(p);
 
-      const height = mix(starter.height, target.height, p);
-      const heightScale = height / BASE_HEIGHT;
+      // ----- Height -----
+      const heightScale = profile.height / BASE_HEIGHT;
+      skeleton.scale.set(1, heightScale, 1);
 
-      skeletonRoot.scale.set(1, heightScale, 1);
+      // ----- Torso -----
+      rebuildTorso(profile);
 
-      const shoulderWidth = mix(starter.shoulderWidth, target.shoulderWidth, p);
-
-      const chestWidth = mix(starter.chestWidth, target.chestWidth, p);
-      const chestHeight = mix(starter.chestHeight, target.chestHeight, p);
-      const chestDepth = mix(starter.chestDepth, target.chestDepth, p);
-      const chestProjection = mix(starter.chestProjection, target.chestProjection, p);
-
-      const upperWaistWidth = mix(starter.upperWaistWidth, target.upperWaistWidth, p);
-      const lowerWaistWidth = mix(starter.lowerWaistWidth, target.lowerWaistWidth, p);
-      const waistDepth = mix(starter.waistDepth, target.waistDepth, p);
-
-      const hipWidth = mix(starter.hipWidth, target.hipWidth, p);
-      const hipDepth = mix(starter.hipDepth, target.hipDepth, p);
-      const pelvisHeight = mix(starter.pelvisHeight, target.pelvisHeight, p);
-
-      // ----- Anatomical torso shape -----
-
-      chestMesh.scale.set(
-        chestWidth,
-        chestHeight,
-        chestDepth
+      // ----- Neck/head -----
+      neckMesh.scale.set(
+        mix(1.0, 0.90, p),
+        1.0,
+        mix(1.0, 0.90, p)
       );
 
-      chestMesh.position.set(
-        0,
-        -0.035,
-        0.025
-      );
-
-      // Upper abdomen is narrower and higher.
-      upperAbdomenMesh.scale.set(
-        upperWaistWidth,
-        0.22,
-        waistDepth
-      );
-
-      upperAbdomenMesh.position.set(
-        0,
-        0.035,
-        0.025
-      );
-
-      // Lower abdomen sits toward pelvis and tapers.
-      lowerAbdomenMesh.scale.set(
-        lowerWaistWidth,
-        0.205,
-        waistDepth * 0.98
-      );
-
-      lowerAbdomenMesh.position.set(
-        0,
-        -0.095,
-        0.02
-      );
-
-      pelvisMesh.scale.set(
-        hipWidth,
-        pelvisHeight,
-        hipDepth
-      );
-
-      pelvisMesh.position.set(
-        0,
-        -0.025,
-        0.025
-      );
-
-      // Keep front contours subtle.
-      const contourWidth = 0.095;
-      const contourHeight = 0.085;
-      const contourDepth = 0.025 + chestProjection * 0.45;
-
-      leftChestContour.scale.set(
-        contourWidth,
-        contourHeight,
-        contourDepth
-      );
-
-      rightChestContour.scale.copy(leftChestContour.scale);
-
-      leftChestContour.position.set(
-        -chestWidth * 0.19,
-        -0.03,
-        -(chestDepth * 0.39 + chestProjection * 0.32)
-      );
-
-      rightChestContour.position.set(
-        chestWidth * 0.19,
-        -0.03,
-        -(chestDepth * 0.39 + chestProjection * 0.32)
-      );
-
-      // Neck
-      setCapsuleDimensions(
-        neckMesh,
-        0.055,
-        0.12
-      );
-
-      neckMesh.position.set(
-        0,
-        -0.055,
-        0
+      headMesh.scale.set(
+        mix(0.155, 0.145, p),
+        mix(0.205, 0.192, p),
+        mix(0.165, 0.155, p)
       );
 
       // ----- Arms -----
-
-      const upperArmRadius = mix(starter.upperArmRadius, target.upperArmRadius, p);
-      const forearmRadius = mix(starter.forearmRadius, target.forearmRadius, p);
-      const handWidth = mix(starter.handWidth, target.handWidth, p);
-      const handLength = mix(starter.handLength, target.handLength, p);
-
-      const upperArmLength = 0.33;
-      const forearmLength = 0.30;
+      const upperArmLength = 0.32;
+      const forearmLength = 0.29;
 
       function updateArm(arm) {
         arm.shoulder.position.set(
-          arm.sign * shoulderWidth * 0.54,
-          0.025,
-          0.035
+          arm.sign * profile.shoulderWidth * 0.52,
+          0.02,
+          0.015
         );
 
-        setCapsuleDimensions(
-          arm.upperArm,
-          upperArmRadius,
-          upperArmLength
+        arm.upperArm.geometry.dispose();
+        arm.upperArm.geometry = new THREE.CylinderGeometry(
+          profile.upperArmBottom,
+          profile.upperArmTop,
+          upperArmLength,
+          16,
+          4
         );
+        arm.upperArm.position.set(0, -upperArmLength * 0.50, 0.01);
 
-        arm.upperArm.position.set(
-          0,
-          -upperArmLength * 0.50,
-          0.02
-        );
+        arm.elbow.position.set(0, -upperArmLength, 0.01);
 
-        arm.elbow.position.set(
-          0,
-          -upperArmLength,
-          0.02
+        arm.forearm.geometry.dispose();
+        arm.forearm.geometry = new THREE.CylinderGeometry(
+          profile.forearmBottom,
+          profile.forearmTop,
+          forearmLength,
+          16,
+          4
         );
+        arm.forearm.position.set(0, -forearmLength * 0.50, -0.01);
 
-        setCapsuleDimensions(
-          arm.forearm,
-          forearmRadius,
-          forearmLength
-        );
-
-        arm.forearm.position.set(
-          0,
-          -forearmLength * 0.50,
-          -0.01
-        );
-
-        arm.wrist.position.set(
-          0,
-          -forearmLength,
-          -0.02
-        );
+        arm.wrist.position.set(0, -forearmLength, -0.015);
 
         arm.hand.scale.set(
-          handWidth,
-          handLength,
-          handWidth * 0.55
+          profile.handW,
+          profile.handH,
+          profile.handD
         );
-
         arm.hand.position.set(
           0,
-          -handLength * 0.48,
-          -0.03
+          -profile.handH * 0.48,
+          -0.02
         );
       }
 
@@ -692,68 +730,66 @@
       updateArm(rightArm);
 
       // ----- Legs -----
-
-      const thighRadius = mix(starter.thighRadius, target.thighRadius, p);
-      const shinRadius = mix(starter.shinRadius, target.shinRadius, p);
-      const footWidth = mix(starter.footWidth, target.footWidth, p);
-      const footLength = mix(starter.footLength, target.footLength, p);
-
-      const thighLength = 0.43;
-      const shinLength = 0.41;
+      const thighLength = 0.42;
+      const calfLength = 0.40;
 
       function updateLeg(leg) {
         leg.hip.position.set(
-          leg.sign * hipWidth * 0.22,
-          -0.09,
-          0.02
+          leg.sign * profile.hipW * 0.20,
+          -0.08,
+          0.01
         );
 
-        setCapsuleDimensions(
-          leg.thigh,
-          thighRadius,
-          thighLength
+        leg.thigh.geometry.dispose();
+        leg.thigh.geometry = new THREE.CylinderGeometry(
+          profile.thighBottom,
+          profile.thighTop,
+          thighLength,
+          18,
+          4
         );
-
         leg.thigh.position.set(
           0,
           -thighLength * 0.50,
-          0.025
+          0.015
         );
 
         leg.knee.position.set(
           0,
           -thighLength,
-          0.02
+          0.01
         );
 
-        setCapsuleDimensions(
-          leg.shin,
-          shinRadius,
-          shinLength
+        leg.calf.geometry.dispose();
+        leg.calf.geometry = new THREE.CylinderGeometry(
+          profile.calfBottom,
+          profile.calfTop,
+          calfLength,
+          18,
+          4
         );
-
-        leg.shin.position.set(
+        leg.calf.position.set(
           0,
-          -shinLength * 0.50,
-          0.02
+          -calfLength * 0.50,
+          0.015
         );
 
         leg.ankle.position.set(
           0,
-          -shinLength,
-          0.02
+          -calfLength,
+          0.015
         );
 
         leg.foot.scale.set(
-          footWidth,
-          0.09,
-          footLength
+          profile.footW,
+          profile.footH,
+          profile.footL
         );
 
         leg.foot.position.set(
           0,
-          -0.045,
-          -footLength * 0.36
+          -profile.footH * 0.48,
+          -profile.footL * 0.32
         );
       }
 
@@ -761,7 +797,6 @@
       updateLeg(rightLeg);
 
       // ----- Colors -----
-
       skinMaterial.color.copy(starter.skin).lerp(target.skin, p);
       shirtMaterial.color.copy(starter.shirt).lerp(target.shirt, p);
       pantsMaterial.color.copy(starter.pants).lerp(target.pants, p);
@@ -775,7 +810,7 @@
     let transforming = false;
     let transformStart = 0;
 
-    const TRANSFORM_MS = 26000;
+    const TRANSFORM_MS = 30000;
 
     const status = document.getElementById("status");
     const barFill = document.getElementById("barFill");
@@ -792,7 +827,7 @@
       transformBtn.textContent = "TRANSFORMING";
 
       status.textContent =
-        "Transformation started. Keep looking down while the body changes.";
+        "Transformation started. The same human body is reshaping continuously.";
     }
 
     function resetTransformation() {
@@ -805,37 +840,31 @@
       barFill.style.width = "0%";
 
       status.textContent =
-        "Starter form restored. Use LOOK DOWN to inspect your body.";
+        "Starter form restored. Use BODY VIEW first, then LOOK DOWN.";
     }
 
     transformBtn.addEventListener("click", startTransformation);
     document.getElementById("resetBtn").addEventListener("click", resetTransformation);
 
     // =========================================================
-    // CAMERA / LOOK
+    // CAMERA
     // =========================================================
 
     let yaw = 0;
-    let pitch = -0.18;
+    let pitch = -0.14;
+    let bodyView = false;
 
-    const sensitivity = 0.0042;
+    const sensitivity = 0.0041;
 
-    // In Three.js, negative X rotation looks downward in this setup.
-    const minPitch = THREE.MathUtils.degToRad(-86);
-    const maxPitch = THREE.MathUtils.degToRad(74);
+    const minPitch = THREE.MathUtils.degToRad(-88);
+    const maxPitch = THREE.MathUtils.degToRad(72);
 
     let dragging = false;
     let lastX = 0;
     let lastY = 0;
 
-    let bodyView = false;
-
     function setPitch(value) {
-      pitch = THREE.MathUtils.clamp(
-        value,
-        minPitch,
-        maxPitch
-      );
+      pitch = THREE.MathUtils.clamp(value, minPitch, maxPitch);
     }
 
     function beginLook(x, y) {
@@ -894,16 +923,12 @@
 
     renderer.domElement.addEventListener(
       "mousedown",
-      (e) => {
-        beginLook(e.clientX, e.clientY);
-      }
+      (e) => beginLook(e.clientX, e.clientY)
     );
 
     window.addEventListener(
       "mousemove",
-      (e) => {
-        moveLook(e.clientX, e.clientY);
-      }
+      (e) => moveLook(e.clientX, e.clientY)
     );
 
     window.addEventListener("mouseup", endLook);
@@ -913,7 +938,7 @@
       () => {
         bodyView = false;
         document.getElementById("viewBtn").textContent = "BODY VIEW";
-        setPitch(THREE.MathUtils.degToRad(-72));
+        setPitch(THREE.MathUtils.degToRad(-76));
       }
     );
 
@@ -927,13 +952,13 @@
 
         status.textContent =
           bodyView
-            ? "Body view active. This is only for checking the full character shape."
-            : "First person restored. Look down to inspect your body.";
+            ? "Body view active. Inspect the full silhouette while it transforms."
+            : "First person restored. Use LOOK DOWN to inspect the body.";
       }
     );
 
     // =========================================================
-    // ANIMATION LOOP
+    // LOOP
     // =========================================================
 
     applyBody(0);
@@ -946,32 +971,30 @@
       if (!bodyView) {
         cameraPitch.rotation.x = pitch;
 
-        // Camera remains parented to head.
         if (camera.parent !== cameraPitch) {
           cameraPitch.add(camera);
           camera.position.set(0, 0, 0);
           camera.rotation.set(0, 0, 0);
         }
       } else {
-        // Temporary external camera.
         if (camera.parent !== scene) {
           scene.attach(camera);
         }
 
-        // Stand behind and above the player, looking toward the full body.
+        // External debug view placed slightly in front-right.
         camera.position.set(
-          player.position.x,
-          1.45,
+          player.position.x + 1.55,
+          1.38,
           player.position.z + 3.0
         );
 
-        const lookTarget = new THREE.Vector3(
-          player.position.x,
-          0.92,
-          player.position.z
+        camera.lookAt(
+          new THREE.Vector3(
+            player.position.x,
+            0.92,
+            player.position.z
+          )
         );
-
-        camera.lookAt(lookTarget);
       }
 
       if (transforming) {
@@ -990,19 +1013,18 @@
         applyBody(smooth);
 
         const percent = Math.round(progress * 100);
-
         barFill.style.width = percent + "%";
 
         status.textContent =
           "Transforming... " + percent +
-          "% - height, torso, hips, limbs, skin and clothing are changing.";
+          "% - body height, silhouette, limbs, skin and clothing are reshaping.";
 
         if (progress >= 1) {
           transforming = false;
           transformBtn.textContent = "COMPLETE";
 
           status.textContent =
-            "Transformation complete. The target body is fully applied.";
+            "Transformation complete. The target human form is fully applied.";
         }
       }
 
