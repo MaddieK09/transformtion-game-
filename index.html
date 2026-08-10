@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game V23 - Fuller Chest Athletic Bridge</title>
+  <title>Transformation Game V24 - Realistic Curvy Athletic Bridge</title>
 
   <style>
     * {
@@ -167,12 +167,12 @@
 
 <body>
   <div id="game"></div>
-  <div id="loading">Loading V23 and building the fuller-chest athletic weighted bone-volume bridge...</div>
+  <div id="loading">Loading V24 and building the realism-focused male-to-curvy-female bridge...</div>
   <div id="fatal"></div>
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game - V23 Fuller Chest Athletic Bridge</div>
+      <div class="title">Transformation Game - V24 Realistic Curvy Athletic Bridge</div>
       <div id="status" class="status">Loading both real endpoint humans...</div>
       <div id="debug" class="debug"></div>
     </div>
@@ -258,6 +258,8 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
     document.getElementById("game").appendChild(renderer.domElement);
 
     scene.add(new THREE.HemisphereLight(0xffffff, 0x65727b, 2.2));
@@ -382,6 +384,14 @@
     const inv = new THREE.Matrix4();
 
     function getWorldVertex(mesh, index, target) {
+      // V24: use the Three.js vertex path that includes morph targets.
+      // On SkinnedMesh this also includes skinning.
+      if (typeof mesh.getVertexPosition === "function") {
+        mesh.getVertexPosition(index, target);
+        return mesh.localToWorld(target);
+      }
+
+      // Compatibility fallback.
       target.fromBufferAttribute(
         mesh.geometry.attributes.position,
         index
@@ -723,100 +733,643 @@
     let femaleMeshBounds = new Map();
     let maleMeshBounds = new Map();
     let femaleBodyBounds;
+    let femaleSemanticBounds;
+    let femaleMorphReport = "not applied";
 
     const CURVE_PROFILE = {
-      // Curvy athletic, not plus-size:
-      // fuller chest, trim waist, athletic hips, smoother hip-to-thigh transition.
-      chestOut: 0.060,
-      chestForward: 0.245,
-      chestUnderCurve: 0.018,
-      hipsOut: 0.035,
-      hipThighBlend: 0.022,
-      waistIn: 0.054,
-      thighOut: 0.016,
-      buttBack: 0.018,
-      shoulderOut: 0.014,
-      abdomenTighten: 0.024
+      // The target starts from the actual female model.
+      // These are moderate, localized adjustments only.
+      bustForward: 0.30,
+      bustSide: 0.020,
+      waistScale: 0.055,
+      hipScale: 0.060,
+      thighScale: 0.024,
+      gluteDepth: 0.075,
+      abdomenFlatten: 0.030
     };
 
-    function bandMask(v, a, b, c, d) {
-      const rise = THREE.MathUtils.smoothstep(v, a, b);
-      const fall = 1 - THREE.MathUtils.smoothstep(v, c, d);
-      return THREE.MathUtils.clamp(rise * fall, 0, 1);
+    const FEMALE_AUTHORED_MORPHS = {
+      skinny: 0.02,
+      muscular: 0.22,
+      obese: 0.00
+    };
+
+    function bell(value, centerValue, width) {
+      const d =
+        (value - centerValue) /
+        Math.max(0.0001, width);
+
+      return Math.exp(
+        -0.5 * d * d
+      );
     }
 
-    function stylizeCurvyFemaleWorld(world) {
-      if (!femaleBodyBounds) return world.clone();
+    function semanticWeightsForVertex(mesh, index) {
+      const influences =
+        getSkinInfluences(mesh, index);
 
-      const { box, size, center } = femaleBodyBounds;
-      const out = world.clone();
+      const out = {
+        torso: 0,
+        pelvis: 0,
+        thigh: 0,
+        lowerLeg: 0,
+        arm: 0,
+        head: 0,
+        known: 0
+      };
 
-      const halfW = Math.max(0.0001, size.x * 0.5);
-      const halfD = Math.max(0.0001, size.z * 0.5);
+      for (const influence of influences) {
+        const n =
+          influence.boneName
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, "");
 
-      const nx = (world.x - center.x) / halfW;
-      const ny = (world.y - box.min.y) / Math.max(0.0001, size.y);
-      const nz = (world.z - center.z) / halfD;
+        const w =
+          influence.weight;
 
-      const absX = Math.abs(nx);
-      const side = nx < 0 ? -1 : 1;
+        // Order matters. UpLeg must be recognized before generic Leg.
+        if (
+          n.includes("upleg") ||
+          n.includes("upperleg") ||
+          n.includes("thigh")
+        ) {
+          out.thigh += w;
+          out.known += w;
+          continue;
+        }
 
-      function bell(value, centerValue, width) {
-        const d = (value - centerValue) / Math.max(0.0001, width);
-        return Math.exp(-d * d * 0.5);
+        if (
+          n.includes("forearm") ||
+          n.includes("lowerarm") ||
+          n.includes("upperarm") ||
+          n.includes("shoulder") ||
+          n.includes("clav") ||
+          n.includes("wrist") ||
+          n.includes("hand") ||
+          n.includes("arm")
+        ) {
+          out.arm += w;
+          out.known += w;
+          continue;
+        }
+
+        if (
+          n.includes("head") ||
+          n.includes("neck") ||
+          n.includes("jaw") ||
+          n.includes("eye")
+        ) {
+          out.head += w;
+          out.known += w;
+          continue;
+        }
+
+        if (
+          n.includes("foot") ||
+          n.includes("toe") ||
+          n.includes("calf") ||
+          n.includes("shin") ||
+          n.includes("lowerleg") ||
+          n.endsWith("leg")
+        ) {
+          out.lowerLeg += w;
+          out.known += w;
+          continue;
+        }
+
+        if (
+          n.includes("hips") ||
+          n.includes("pelvis")
+        ) {
+          out.pelvis += w;
+          out.known += w;
+          continue;
+        }
+
+        if (
+          n.includes("spine") ||
+          n.includes("chest") ||
+          n.includes("rib") ||
+          n.includes("torso")
+        ) {
+          out.torso += w;
+          out.known += w;
+          continue;
+        }
       }
 
-      // Athletic hourglass zones.
-      const shoulderBand = bandMask(ny, 0.70, 0.76, 0.84, 0.90);
-      const chestBand    = bandMask(ny, 0.54, 0.60, 0.76, 0.83);
-      const waistBand    = bandMask(ny, 0.46, 0.53, 0.64, 0.71);
+      return out;
+    }
 
-      // Broader overlapping lower-body bands to remove the sudden hip shelf.
-      const hipBand      = bandMask(ny, 0.34, 0.43, 0.59, 0.69);
-      const thighBand    = bandMask(ny, 0.18, 0.28, 0.45, 0.58);
-      const hipThighBand = bandMask(ny, 0.23, 0.34, 0.56, 0.68);
-      const buttBand     = bandMask(ny, 0.34, 0.43, 0.56, 0.65);
-      const abdomenBand  = bandMask(ny, 0.48, 0.55, 0.67, 0.75);
+    function preciseVertexBounds(root) {
+      const box =
+        new THREE.Box3();
 
-      // Two clear breast lobes, centered left/right, with a protected sternum gap.
-      const bustLobeCenter = bell(absX, 0.31, 0.17);
-      const sternumGap = 1 - bell(absX, 0.0, 0.105);
-      const outerFade = 1 - THREE.MathUtils.smoothstep(absX, 0.58, 0.94);
-      const bustLobe = chestBand * bustLobeCenter * sternumGap * outerFade;
+      box.makeEmpty();
 
-      // Keep shoulders athletic instead of tiny.
-      out.x += side * size.x * CURVE_PROFILE.shoulderOut * shoulderBand * (0.35 + absX * 0.65);
+      for (const mesh of getRenderableMeshes(root)) {
+        const count =
+          mesh.geometry.attributes.position.count;
 
-      // Smooth athletic lower body:
-      // moderate hips, no plus-size widening, and no harsh horizontal hip cutoff.
-      const lowerCurve =
-        CURVE_PROFILE.hipsOut * hipBand +
-        CURVE_PROFILE.thighOut * thighBand +
-        CURVE_PROFILE.hipThighBlend * hipThighBand;
+        for (let i = 0; i < count; i++) {
+          getWorldVertex(
+            mesh,
+            i,
+            tmp
+          );
 
-      out.x += side * size.x * lowerCurve * (0.20 + absX * 0.80);
+          box.expandByPoint(
+            tmp
+          );
+        }
+      }
 
-      // Trim waist for athletic hourglass shape.
-      out.x -= side * size.x * CURVE_PROFILE.waistIn * waistBand * (0.20 + absX * 0.80);
+      const size =
+        new THREE.Vector3();
 
-      // Fuller chest, but only on the two lobes rather than the whole torso.
-      out.x += side * size.x * CURVE_PROFILE.chestOut * bustLobe;
+      const center =
+        new THREE.Vector3();
 
-      // Stronger forward projection.
-      // If the camera/front direction changes later, this is the value to flip.
-      const frontMask = THREE.MathUtils.smoothstep(nz, -0.12, 0.22);
-      out.z += size.z * CURVE_PROFILE.chestForward * bustLobe * frontMask;
+      box.getSize(size);
+      box.getCenter(center);
 
-      // Subtle lower curve so the chest reads as volume from the front.
-      const lowerBust = chestBand * bell(absX, 0.30, 0.20) * bandMask(ny, 0.55, 0.60, 0.67, 0.73);
-      out.y -= size.y * CURVE_PROFILE.chestUnderCurve * lowerBust;
+      return {
+        box,
+        size,
+        center
+      };
+    }
 
-      // Tight athletic abdomen: flatten slightly instead of adding belly mass.
-      out.z -= size.z * CURVE_PROFILE.abdomenTighten * abdomenBand * frontMask;
+    function finalizedBox(box, fallback) {
+      if (
+        box.isEmpty() ||
+        !isFinite(box.min.x) ||
+        !isFinite(box.max.x)
+      ) {
+        return fallback;
+      }
 
-      // Restrained glute fullness.
-      const backMask = 1 - THREE.MathUtils.smoothstep(nz, -0.22, 0.06);
-      out.z -= size.z * CURVE_PROFILE.buttBack * buttBand * backMask;
+      const size =
+        new THREE.Vector3();
+
+      const center =
+        new THREE.Vector3();
+
+      box.getSize(size);
+      box.getCenter(center);
+
+      return {
+        box,
+        size,
+        center
+      };
+    }
+
+    function buildFemaleSemanticBounds() {
+      const whole =
+        preciseVertexBounds(femaleRoot);
+
+      const torsoBox =
+        new THREE.Box3().makeEmpty();
+
+      const lowerBox =
+        new THREE.Box3().makeEmpty();
+
+      const pelvisBox =
+        new THREE.Box3().makeEmpty();
+
+      let torsoSamples = 0;
+      let lowerSamples = 0;
+      let pelvisSamples = 0;
+
+      for (const mesh of getRenderableMeshes(femaleRoot)) {
+        const count =
+          mesh.geometry.attributes.position.count;
+
+        for (let i = 0; i < count; i++) {
+          const semantic =
+            semanticWeightsForVertex(
+              mesh,
+              i
+            );
+
+          getWorldVertex(
+            mesh,
+            i,
+            tmp
+          );
+
+          const torsoEligible =
+            semantic.torso > 0.16 &&
+            semantic.arm < 0.55 &&
+            semantic.head < 0.55;
+
+          if (torsoEligible) {
+            torsoBox.expandByPoint(tmp);
+            torsoSamples++;
+          }
+
+          const lowerWeight =
+            semantic.pelvis +
+            semantic.thigh;
+
+          const lowerEligible =
+            lowerWeight > 0.16 &&
+            semantic.arm < 0.30 &&
+            semantic.head < 0.30 &&
+            semantic.lowerLeg < 0.70;
+
+          if (lowerEligible) {
+            lowerBox.expandByPoint(tmp);
+            lowerSamples++;
+          }
+
+          if (
+            semantic.pelvis > 0.14 &&
+            semantic.arm < 0.25
+          ) {
+            pelvisBox.expandByPoint(tmp);
+            pelvisSamples++;
+          }
+        }
+      }
+
+      return {
+        whole,
+        torso:
+          finalizedBox(
+            torsoBox,
+            whole
+          ),
+        lower:
+          finalizedBox(
+            lowerBox,
+            whole
+          ),
+        pelvis:
+          finalizedBox(
+            pelvisBox,
+            whole
+          ),
+        torsoSamples,
+        lowerSamples,
+        pelvisSamples
+      };
+    }
+
+    function setFemaleAuthoredMorphs(root) {
+      let changedMeshes = 0;
+      let skinnyHits = 0;
+      let muscularHits = 0;
+      let obeseHits = 0;
+
+      root.traverse(obj => {
+        if (
+          (!obj.isMesh && !obj.isSkinnedMesh) ||
+          !obj.morphTargetDictionary ||
+          !obj.morphTargetInfluences
+        ) {
+          return;
+        }
+
+        let changedThisMesh =
+          false;
+
+        for (
+          const [name, idx]
+          of Object.entries(
+            obj.morphTargetDictionary
+          )
+        ) {
+          const n =
+            name.toLowerCase();
+
+          if (n.includes("skinny")) {
+            obj.morphTargetInfluences[idx] =
+              FEMALE_AUTHORED_MORPHS.skinny;
+
+            skinnyHits++;
+            changedThisMesh = true;
+          }
+
+          if (n.includes("muscular")) {
+            obj.morphTargetInfluences[idx] =
+              FEMALE_AUTHORED_MORPHS.muscular;
+
+            muscularHits++;
+            changedThisMesh = true;
+          }
+
+          if (n.includes("obese")) {
+            obj.morphTargetInfluences[idx] =
+              FEMALE_AUTHORED_MORPHS.obese;
+
+            obeseHits++;
+            changedThisMesh = true;
+          }
+        }
+
+        if (changedThisMesh) {
+          changedMeshes++;
+        }
+      });
+
+      femaleMorphReport =
+        `authored female morphs: muscular ${FEMALE_AUTHORED_MORPHS.muscular.toFixed(2)}, ` +
+        `skinny ${FEMALE_AUTHORED_MORPHS.skinny.toFixed(2)}, obese 0.00 ` +
+        `(${changedMeshes} meshes; M:${muscularHits} S:${skinnyHits} O:${obeseHits})`;
+    }
+
+    function stylizeCurvyFemaleVertex(
+      mesh,
+      index,
+      world
+    ) {
+      if (
+        !femaleSemanticBounds
+      ) {
+        return world.clone();
+      }
+
+      const out =
+        world.clone();
+
+      const semantic =
+        semanticWeightsForVertex(
+          mesh,
+          index
+        );
+
+      // Protect limbs/head from body-shaping operations.
+      const protectedWeight =
+        THREE.MathUtils.clamp(
+          semantic.arm * 1.15 +
+          semantic.head * 1.20 +
+          semantic.lowerLeg * 0.90,
+          0,
+          1
+        );
+
+      const editable =
+        1 - protectedWeight;
+
+      if (
+        editable <= 0.001
+      ) {
+        return out;
+      }
+
+      const whole =
+        femaleSemanticBounds.whole;
+
+      const torso =
+        femaleSemanticBounds.torso;
+
+      const lower =
+        femaleSemanticBounds.lower;
+
+      const bodyNy =
+        THREE.MathUtils.clamp(
+          (world.y - whole.box.min.y) /
+          Math.max(
+            0.0001,
+            whole.size.y
+          ),
+          0,
+          1
+        );
+
+      // -------------------------------------------------------
+      // CHEST
+      // -------------------------------------------------------
+      // Normalize against torso bounds, NOT total arm-span bounds.
+      const torsoHalfW =
+        Math.max(
+          0.0001,
+          torso.size.x * 0.5
+        );
+
+      const torsoHalfD =
+        Math.max(
+          0.0001,
+          torso.size.z * 0.5
+        );
+
+      const tx =
+        (world.x - torso.center.x) /
+        torsoHalfW;
+
+      const tz =
+        (world.z - torso.center.z) /
+        torsoHalfD;
+
+      const absTx =
+        Math.abs(tx);
+
+      const side =
+        tx < 0 ? -1 : 1;
+
+      const torsoEdit =
+        THREE.MathUtils.clamp(
+          semantic.torso * editable,
+          0,
+          1
+        );
+
+      const chestY =
+        bell(
+          bodyNy,
+          0.685,
+          0.058
+        );
+
+      const lobeX =
+        bell(
+          absTx,
+          0.30,
+          0.18
+        );
+
+      const sternumGap =
+        THREE.MathUtils.smoothstep(
+          absTx,
+          0.08,
+          0.19
+        );
+
+      const outerFade =
+        1 -
+        THREE.MathUtils.smoothstep(
+          absTx,
+          0.66,
+          0.96
+        );
+
+      // Model faces +Z in the current body view.
+      const frontness =
+        THREE.MathUtils.smoothstep(
+          tz,
+          -0.10,
+          0.48
+        );
+
+      const bust =
+        chestY *
+        lobeX *
+        sternumGap *
+        outerFade *
+        frontness *
+        torsoEdit;
+
+      // Bigger chest comes mainly from DEPTH, not wider ribcage.
+      out.z +=
+        torso.size.z *
+        CURVE_PROFILE.bustForward *
+        bust;
+
+      // Only a tiny amount of lateral fullness inside the lobes.
+      out.x +=
+        side *
+        torso.size.x *
+        CURVE_PROFILE.bustSide *
+        bust;
+
+      out.y -=
+        whole.size.y *
+        0.0045 *
+        bust;
+
+      // -------------------------------------------------------
+      // ATHLETIC WAIST / ABDOMEN
+      // -------------------------------------------------------
+      const waistBand =
+        bell(
+          bodyNy,
+          0.555,
+          0.073
+        );
+
+      const waistEdit =
+        waistBand *
+        torsoEdit;
+
+      out.x =
+        torso.center.x +
+        (out.x - torso.center.x) *
+        (
+          1 -
+          CURVE_PROFILE.waistScale *
+          waistEdit
+        );
+
+      const abdomenBand =
+        bell(
+          bodyNy,
+          0.565,
+          0.082
+        );
+
+      // Flatten only the front abdomen.
+      out.z -=
+        torso.size.z *
+        CURVE_PROFILE.abdomenFlatten *
+        abdomenBand *
+        frontness *
+        torsoEdit;
+
+      // -------------------------------------------------------
+      // HIPS / THIGHS
+      // -------------------------------------------------------
+      const lowerHalfW =
+        Math.max(
+          0.0001,
+          lower.size.x * 0.5
+        );
+
+      const lowerHalfD =
+        Math.max(
+          0.0001,
+          lower.size.z * 0.5
+        );
+
+      const lz =
+        (world.z - lower.center.z) /
+        lowerHalfD;
+
+      const pelvisEdit =
+        THREE.MathUtils.clamp(
+          (
+            semantic.pelvis +
+            semantic.thigh * 0.32
+          ) *
+          editable,
+          0,
+          1
+        );
+
+      const thighEdit =
+        THREE.MathUtils.clamp(
+          semantic.thigh *
+          editable,
+          0,
+          1
+        );
+
+      // Smooth overlapping profiles: no abrupt horizontal hip shelf.
+      const hipBand =
+        bell(
+          bodyNy,
+          0.465,
+          0.095
+        );
+
+      const thighBand =
+        bell(
+          bodyNy,
+          0.335,
+          0.115
+        );
+
+      const hipScale =
+        1 +
+        CURVE_PROFILE.hipScale *
+        hipBand *
+        pelvisEdit;
+
+      const thighScale =
+        1 +
+        CURVE_PROFILE.thighScale *
+        thighBand *
+        thighEdit;
+
+      out.x =
+        lower.center.x +
+        (out.x - lower.center.x) *
+        hipScale *
+        thighScale;
+
+      // Restrained athletic glute projection only on the rear surface.
+      const backness =
+        1 -
+        THREE.MathUtils.smoothstep(
+          lz,
+          -0.34,
+          0.06
+        );
+
+      const gluteBand =
+        bell(
+          bodyNy,
+          0.455,
+          0.085
+        );
+
+      out.z -=
+        lower.size.z *
+        CURVE_PROFILE.gluteDepth *
+        gluteBand *
+        backness *
+        pelvisEdit;
 
       return out;
     }
@@ -1021,7 +1574,11 @@
           // Curvier endpoint: start from the real female world vertex,
           // then apply a stylized curvy-body enhancement so the transformation reads more clearly.
           const targetWorld =
-            stylizeCurvyFemaleWorld(femaleWorld);
+            stylizeCurvyFemaleVertex(
+              femaleMesh,
+              i,
+              femaleWorld
+            );
 
           target[k] =
             targetWorld.x;
@@ -1150,8 +1707,11 @@
         `correspondence: full skin-weight blend + normalized bone volume\n` +
         `rank sorting: NONE\n` +
         `nearest-point matching: NONE\n` +
-        `100% target: fuller-chest curvy athletic geometry\n` +
-        `curve profile: fuller chest + trim waist + smoother athletic hips`;
+        `100% target: real female topology + localized curvy athletic sculpt\n` +
+        `${femaleMorphReport}\n` +
+        `torso semantic samples: ${femaleSemanticBounds?.torsoSamples ?? 0}\n` +
+        `lower-body semantic samples: ${femaleSemanticBounds?.lowerSamples ?? 0}\n` +
+        `realism protection: arms/hands + head/neck + calves/feet excluded from curve sculpt`;
 
       maleRoot.visible =
         false;
@@ -1266,7 +1826,7 @@
 
       if (mode === "bridge") {
         statusEl.textContent =
-          "Bridge body - weighted bone-volume start, fuller-chest athletic female target.";
+          "Bridge body - male-shaped start to realism-focused curvy athletic female target.";
       } else if (mode === "male") {
         statusEl.textContent =
           "Real male endpoint reference.";
@@ -1689,8 +2249,24 @@
         1.65
       );
 
+      // Start with the female model's own authored shape system.
+      // Muscular is used lightly for a real athletic base.
+      // Obese stays at zero.
+      setFemaleAuthoredMorphs(
+        femaleRoot
+      );
+
+      femaleRoot.updateMatrixWorld(
+        true
+      );
+
       femaleBodyBounds =
-        getBounds(femaleRoot);
+        preciseVertexBounds(
+          femaleRoot
+        );
+
+      femaleSemanticBounds =
+        buildFemaleSemanticBounds();
 
       maleBones =
         collectBones(
@@ -1748,7 +2324,7 @@
         "none";
 
       statusEl.textContent =
-        "V23 ready. Female topology starts in a male-shaped bridge, then transforms into a fuller-chest curvy athletic endpoint with a trim waist and smoother hips.";
+        "V24 ready. The bridge transforms from the male-shaped body into the real female topology, with only localized torso and pelvis regions made curvier. Arms, hands, head, calves and feet are protected from the curve sculpt.";
     }
 
     setup().catch(
