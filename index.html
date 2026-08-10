@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game V24 - Realistic Curvy Athletic Bridge</title>
+  <title>Transformation Game V25 - Camera + Hide UI</title>
 
   <style>
     * {
@@ -71,6 +71,34 @@
       line-height: 1.35;
       opacity: 0.74;
       white-space: pre-line;
+    }
+
+    #hud.uiHidden,
+    #controls.uiHidden {
+      display: none;
+    }
+
+    #uiToggle {
+      position: fixed;
+      top: calc(env(safe-area-inset-top) + 10px);
+      right: 10px;
+      z-index: 300;
+      min-width: 0;
+      width: auto;
+      padding: 9px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.28);
+      background: rgba(12,14,18,0.82);
+      color: white;
+      font-size: 11px;
+      font-weight: 800;
+      backdrop-filter: blur(9px);
+      -webkit-backdrop-filter: blur(9px);
+    }
+
+    #uiToggle.uiIsHidden {
+      background: rgba(255,255,255,0.90);
+      color: #111;
     }
 
     #controls {
@@ -167,12 +195,13 @@
 
 <body>
   <div id="game"></div>
-  <div id="loading">Loading V24 and building the realism-focused male-to-curvy-female bridge...</div>
+  <button id="uiToggle" type="button">HIDE UI</button>
+  <div id="loading">Loading V25...</div>
   <div id="fatal"></div>
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game - V24 Realistic Curvy Athletic Bridge</div>
+      <div class="title">Transformation Game - V25 Camera + Hide UI</div>
       <div id="status" class="status">Loading both real endpoint humans...</div>
       <div id="debug" class="debug"></div>
     </div>
@@ -217,6 +246,44 @@
     const debugEl = document.getElementById("debug");
     const progressSlider = document.getElementById("progressSlider");
     const progressValue = document.getElementById("progressValue");
+    const hudEl = document.getElementById("hud");
+    const controlsEl = document.getElementById("controls");
+    const uiToggle = document.getElementById("uiToggle");
+
+    let uiHidden = false;
+
+    function setUIHidden(hidden) {
+      uiHidden = hidden;
+
+      hudEl.classList.toggle(
+        "uiHidden",
+        hidden
+      );
+
+      controlsEl.classList.toggle(
+        "uiHidden",
+        hidden
+      );
+
+      uiToggle.classList.toggle(
+        "uiIsHidden",
+        hidden
+      );
+
+      uiToggle.textContent =
+        hidden
+          ? "SHOW UI"
+          : "HIDE UI";
+    }
+
+    uiToggle.addEventListener(
+      "click",
+      () => {
+        setUIHidden(
+          !uiHidden
+        );
+      }
+    );
 
     function fail(error) {
       console.error(error);
@@ -1947,6 +2014,7 @@
     let bodyView =
       true;
 
+    // First-person look angles.
     let yaw =
       0;
 
@@ -1954,6 +2022,62 @@
       THREE.MathUtils.degToRad(
         -7
       );
+
+    // BODY VIEW orbit camera.
+    const orbitTarget =
+      new THREE.Vector3();
+
+    let orbitAzimuth =
+      THREE.MathUtils.degToRad(
+        27
+      );
+
+    let orbitElevation =
+      THREE.MathUtils.degToRad(
+        7
+      );
+
+    let orbitRadius =
+      3.35;
+
+    let orbitMinRadius =
+      1.15;
+
+    let orbitMaxRadius =
+      7.0;
+
+    function updateBodyOrbitCamera() {
+      const cosElevation =
+        Math.cos(
+          orbitElevation
+        );
+
+      camera.position.set(
+        orbitTarget.x +
+          orbitRadius *
+          cosElevation *
+          Math.sin(
+            orbitAzimuth
+          ),
+
+        orbitTarget.y +
+          orbitRadius *
+          Math.sin(
+            orbitElevation
+          ),
+
+        orbitTarget.z +
+          orbitRadius *
+          cosElevation *
+          Math.cos(
+            orbitAzimuth
+          )
+      );
+
+      camera.lookAt(
+        orbitTarget
+      );
+    }
 
     function setBodyView() {
       bodyView =
@@ -1969,19 +2093,44 @@
           visual
         );
 
-      camera.position.set(
-        b.center.x + 1.5,
-        b.box.min.y +
-          b.size.y * 0.62,
-        b.center.z + 3.0
-      );
-
-      camera.lookAt(
+      orbitTarget.set(
         b.center.x,
         b.box.min.y +
-          b.size.y * 0.49,
+          b.size.y * 0.50,
         b.center.z
       );
+
+      // Start close enough to inspect anatomy while preserving the
+      // same general three-quarter view V24 used.
+      orbitRadius =
+        Math.max(
+          2.35,
+          b.size.y * 1.85
+        );
+
+      orbitMinRadius =
+        Math.max(
+          0.80,
+          b.size.y * 0.68
+        );
+
+      orbitMaxRadius =
+        Math.max(
+          6.5,
+          b.size.y * 4.0
+        );
+
+      orbitAzimuth =
+        THREE.MathUtils.degToRad(
+          27
+        );
+
+      orbitElevation =
+        THREE.MathUtils.degToRad(
+          8
+        );
+
+      updateBodyOrbitCamera();
     }
 
     function setFirstPerson() {
@@ -2036,8 +2185,8 @@
 
           statusEl.textContent =
             showing === "bridge"
-              ? "BODY VIEW - weighted bridge."
-              : `BODY VIEW - ${showing} reference.`;
+              ? "BODY VIEW - drag to orbit, pinch to zoom."
+              : `BODY VIEW - ${showing} reference; drag to orbit, pinch to zoom.`;
         }
       );
 
@@ -2056,8 +2205,29 @@
     let lastY =
       0;
 
+    let pinchDistance =
+      0;
+
     const sensitivity =
       0.004;
+
+    const orbitSensitivity =
+      0.0052;
+
+    function touchDistance(t0, t1) {
+      const dx =
+        t1.clientX -
+        t0.clientX;
+
+      const dy =
+        t1.clientY -
+        t0.clientY;
+
+      return Math.hypot(
+        dx,
+        dy
+      );
+    }
 
     function startDrag(x,y) {
       dragging =
@@ -2072,8 +2242,7 @@
 
     function drag(x,y) {
       if (
-        !dragging ||
-        bodyView
+        !dragging
       ) {
         return;
       }
@@ -2090,11 +2259,35 @@
       lastY =
         y;
 
+      if (bodyView) {
+        // Orbit around the body instead of locking the camera.
+        orbitAzimuth -=
+          dx *
+          orbitSensitivity;
+
+        orbitElevation +=
+          dy *
+          orbitSensitivity;
+
+        orbitElevation =
+          THREE.MathUtils.clamp(
+            orbitElevation,
+            THREE.MathUtils.degToRad(-55),
+            THREE.MathUtils.degToRad(72)
+          );
+
+        updateBodyOrbitCamera();
+        return;
+      }
+
+      // Existing first-person look behavior.
       yaw -=
-        dx * sensitivity;
+        dx *
+        sensitivity;
 
       pitch -=
-        dy * sensitivity;
+        dy *
+        sensitivity;
 
       pitch =
         THREE.MathUtils.clamp(
@@ -2104,9 +2297,42 @@
         );
     }
 
+    function applyPinch(currentDistance) {
+      if (
+        !bodyView ||
+        pinchDistance <= 0 ||
+        currentDistance <= 0
+      ) {
+        pinchDistance =
+          currentDistance;
+
+        return;
+      }
+
+      const ratio =
+        pinchDistance /
+        currentDistance;
+
+      orbitRadius =
+        THREE.MathUtils.clamp(
+          orbitRadius *
+          ratio,
+          orbitMinRadius,
+          orbitMaxRadius
+        );
+
+      pinchDistance =
+        currentDistance;
+
+      updateBodyOrbitCamera();
+    }
+
     function endDrag() {
       dragging =
         false;
+
+      pinchDistance =
+        0;
     }
 
     renderer.domElement.addEventListener(
@@ -2115,10 +2341,25 @@
         if (
           e.touches.length === 1
         ) {
+          pinchDistance =
+            0;
+
           startDrag(
             e.touches[0].clientX,
             e.touches[0].clientY
           );
+        } else if (
+          e.touches.length === 2 &&
+          bodyView
+        ) {
+          dragging =
+            false;
+
+          pinchDistance =
+            touchDistance(
+              e.touches[0],
+              e.touches[1]
+            );
         }
       },
       { passive:false }
@@ -2136,6 +2377,18 @@
             e.touches[0].clientX,
             e.touches[0].clientY
           );
+        } else if (
+          e.touches.length === 2 &&
+          bodyView
+        ) {
+          e.preventDefault();
+
+          applyPinch(
+            touchDistance(
+              e.touches[0],
+              e.touches[1]
+            )
+          );
         }
       },
       { passive:false }
@@ -2143,7 +2396,21 @@
 
     renderer.domElement.addEventListener(
       "touchend",
-      endDrag
+      e => {
+        if (
+          e.touches.length === 1
+        ) {
+          pinchDistance =
+            0;
+
+          startDrag(
+            e.touches[0].clientX,
+            e.touches[0].clientY
+          );
+        } else {
+          endDrag();
+        }
+      }
     );
 
     renderer.domElement.addEventListener(
@@ -2183,7 +2450,10 @@
         );
       }
 
-      if (!bodyView) {
+      if (bodyView) {
+        // Keep the orbit orientation stable while the model morphs.
+        updateBodyOrbitCamera();
+      } else {
         euler.set(
           pitch,
           yaw,
@@ -2324,7 +2594,7 @@
         "none";
 
       statusEl.textContent =
-        "V24 ready. The bridge transforms from the male-shaped body into the real female topology, with only localized torso and pelvis regions made curvier. Arms, hands, head, calves and feet are protected from the curve sculpt.";
+        "V25 ready. Morph system unchanged. Use HIDE UI for an unobstructed view; drag in BODY VIEW to orbit and pinch to zoom.";
     }
 
     setup().catch(
