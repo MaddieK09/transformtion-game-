@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game V26 - Polished Body Camera</title>
+  <title>Transformation Game V27 - Character Viewer Camera</title>
 
   <style>
     * {
@@ -196,12 +196,12 @@
 <body>
   <div id="game"></div>
   <button id="uiToggle" type="button">HIDE UI</button>
-  <div id="loading">Loading V26...</div>
+  <div id="loading">Loading V27...</div>
   <div id="fatal"></div>
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game - V26 Polished Body Camera</div>
+      <div class="title">Transformation Game - V27 Character Viewer Camera</div>
       <div id="status" class="status">Loading both real endpoint humans...</div>
       <div id="debug" class="debug"></div>
     </div>
@@ -2061,12 +2061,12 @@
 
     const ORBIT_MIN_ELEVATION =
       THREE.MathUtils.degToRad(
-        -24
+        -18
       );
 
     const ORBIT_MAX_ELEVATION =
       THREE.MathUtils.degToRad(
-        48
+        32
       );
 
     const ORBIT_SMOOTHING =
@@ -2104,20 +2104,20 @@
       desiredOrbitTarget.set(
         b.center.x,
         b.box.min.y +
-          b.size.y * 0.54,
+          b.size.y * 0.57,
         b.center.z
       );
 
       orbitMinRadius =
         Math.max(
-          1.15,
-          b.size.y * 0.82
+          0.92,
+          b.size.y * 0.64
         );
 
       orbitMaxRadius =
         Math.max(
-          5.8,
-          b.size.y * 3.6
+          4.8,
+          b.size.y * 2.85
         );
 
       desiredOrbitRadius =
@@ -2166,6 +2166,25 @@
             orbitRadius,
             desiredOrbitRadius,
             ORBIT_SMOOTHING
+          );
+
+        // At steeper vertical angles, keep a tiny bit more distance
+        // so the camera does not clip through the body.
+        const angleSafety =
+          THREE.MathUtils.lerp(
+            1.0,
+            1.10,
+            Math.abs(orbitElevation) /
+              Math.max(
+                0.001,
+                ORBIT_MAX_ELEVATION
+              )
+          );
+
+        orbitRadius =
+          Math.max(
+            orbitRadius,
+            orbitMinRadius * angleSafety
           );
 
         orbitTarget.lerp(
@@ -2224,26 +2243,26 @@
 
       desiredOrbitElevation =
         THREE.MathUtils.degToRad(
-          8
+          5
         );
 
       orbitMinRadius =
         Math.max(
-          1.15,
-          b.size.y * 0.82
+          0.92,
+          b.size.y * 0.64
         );
 
       orbitMaxRadius =
         Math.max(
-          5.8,
-          b.size.y * 3.6
+          4.8,
+          b.size.y * 2.85
         );
 
       desiredOrbitRadius =
         THREE.MathUtils.clamp(
           Math.max(
-            2.45,
-            b.size.y * 1.85
+            2.10,
+            b.size.y * 1.55
           ),
           orbitMinRadius,
           orbitMaxRadius
@@ -2252,7 +2271,7 @@
       desiredOrbitTarget.set(
         b.center.x,
         b.box.min.y +
-          b.size.y * 0.54,
+          b.size.y * 0.57,
         b.center.z
       );
 
@@ -2324,8 +2343,8 @@
 
           statusEl.textContent =
             showing === "bridge"
-              ? "BODY VIEW - drag to orbit, pinch to zoom."
-              : `BODY VIEW - ${showing} reference; drag to orbit, pinch to zoom.`;
+              ? "BODY VIEW - full horizontal orbit, limited vertical orbit, pinch to zoom."
+              : `BODY VIEW - ${showing} reference; full horizontal orbit, limited vertical orbit, pinch to zoom.`;
         }
       );
 
@@ -2754,7 +2773,7 @@
         "none";
 
       statusEl.textContent =
-        "V26 ready. Morph system unchanged. BODY VIEW now has smoother orbit/zoom limits and a reset camera button.";
+        "V27 ready. Morph system unchanged. BODY VIEW now behaves more like a character viewer: tighter vertical orbit, closer useful framing, full horizontal rotation.";
     }
 
     setup().catch(
