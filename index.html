@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game V25 - Camera + Hide UI</title>
+  <title>Transformation Game V26 - Polished Body Camera</title>
 
   <style>
     * {
@@ -196,12 +196,12 @@
 <body>
   <div id="game"></div>
   <button id="uiToggle" type="button">HIDE UI</button>
-  <div id="loading">Loading V25...</div>
+  <div id="loading">Loading V26...</div>
   <div id="fatal"></div>
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game - V25 Camera + Hide UI</div>
+      <div class="title">Transformation Game - V26 Polished Body Camera</div>
       <div id="status" class="status">Loading both real endpoint humans...</div>
       <div id="debug" class="debug"></div>
     </div>
@@ -216,6 +216,7 @@
       <button id="maleRefBtn">MALE REF</button>
       <button id="femaleRefBtn">FEMALE REF</button>
       <button id="bridgeBtn">BRIDGE</button>
+      <button id="resetCameraBtn">RESET CAMERA</button>
     </div>
 
     <div class="controlRow">
@@ -2027,6 +2028,9 @@
     const orbitTarget =
       new THREE.Vector3();
 
+    const desiredOrbitTarget =
+      new THREE.Vector3();
+
     let orbitAzimuth =
       THREE.MathUtils.degToRad(
         27
@@ -2034,19 +2038,142 @@
 
     let orbitElevation =
       THREE.MathUtils.degToRad(
-        7
+        8
       );
+
+    let desiredOrbitAzimuth =
+      orbitAzimuth;
+
+    let desiredOrbitElevation =
+      orbitElevation;
 
     let orbitRadius =
       3.35;
 
+    let desiredOrbitRadius =
+      orbitRadius;
+
     let orbitMinRadius =
-      1.15;
+      1.25;
 
     let orbitMaxRadius =
-      7.0;
+      6.5;
 
-    function updateBodyOrbitCamera() {
+    const ORBIT_MIN_ELEVATION =
+      THREE.MathUtils.degToRad(
+        -24
+      );
+
+    const ORBIT_MAX_ELEVATION =
+      THREE.MathUtils.degToRad(
+        48
+      );
+
+    const ORBIT_SMOOTHING =
+      0.18;
+
+    function lerpAngle(current, target, alpha) {
+      let delta =
+        target - current;
+
+      while (delta > Math.PI) {
+        delta -= Math.PI * 2;
+      }
+
+      while (delta < -Math.PI) {
+        delta += Math.PI * 2;
+      }
+
+      return current +
+        delta * alpha;
+    }
+
+    function refreshOrbitTargetFromVisual() {
+      const visual =
+        activeVisual();
+
+      if (!visual) return;
+
+      const b =
+        getBounds(
+          visual
+        );
+
+      // Aim slightly above the geometric center.
+      // This keeps the torso/pelvis visually centered through the morph.
+      desiredOrbitTarget.set(
+        b.center.x,
+        b.box.min.y +
+          b.size.y * 0.54,
+        b.center.z
+      );
+
+      orbitMinRadius =
+        Math.max(
+          1.15,
+          b.size.y * 0.82
+        );
+
+      orbitMaxRadius =
+        Math.max(
+          5.8,
+          b.size.y * 3.6
+        );
+
+      desiredOrbitRadius =
+        THREE.MathUtils.clamp(
+          desiredOrbitRadius,
+          orbitMinRadius,
+          orbitMaxRadius
+        );
+    }
+
+    function updateBodyOrbitCamera(force = false) {
+      if (!bodyView) return;
+
+      refreshOrbitTargetFromVisual();
+
+      if (force) {
+        orbitAzimuth =
+          desiredOrbitAzimuth;
+
+        orbitElevation =
+          desiredOrbitElevation;
+
+        orbitRadius =
+          desiredOrbitRadius;
+
+        orbitTarget.copy(
+          desiredOrbitTarget
+        );
+      } else {
+        orbitAzimuth =
+          lerpAngle(
+            orbitAzimuth,
+            desiredOrbitAzimuth,
+            ORBIT_SMOOTHING
+          );
+
+        orbitElevation =
+          THREE.MathUtils.lerp(
+            orbitElevation,
+            desiredOrbitElevation,
+            ORBIT_SMOOTHING
+          );
+
+        orbitRadius =
+          THREE.MathUtils.lerp(
+            orbitRadius,
+            desiredOrbitRadius,
+            ORBIT_SMOOTHING
+          );
+
+        orbitTarget.lerp(
+          desiredOrbitTarget,
+          ORBIT_SMOOTHING
+        );
+      }
+
       const cosElevation =
         Math.cos(
           orbitElevation
@@ -2079,10 +2206,7 @@
       );
     }
 
-    function setBodyView() {
-      bodyView =
-        true;
-
+    function resetBodyCamera() {
       const visual =
         activeVisual();
 
@@ -2093,44 +2217,59 @@
           visual
         );
 
-      orbitTarget.set(
-        b.center.x,
-        b.box.min.y +
-          b.size.y * 0.50,
-        b.center.z
-      );
-
-      // Start close enough to inspect anatomy while preserving the
-      // same general three-quarter view V24 used.
-      orbitRadius =
-        Math.max(
-          2.35,
-          b.size.y * 1.85
-        );
-
-      orbitMinRadius =
-        Math.max(
-          0.80,
-          b.size.y * 0.68
-        );
-
-      orbitMaxRadius =
-        Math.max(
-          6.5,
-          b.size.y * 4.0
-        );
-
-      orbitAzimuth =
+      desiredOrbitAzimuth =
         THREE.MathUtils.degToRad(
           27
         );
 
-      orbitElevation =
+      desiredOrbitElevation =
         THREE.MathUtils.degToRad(
           8
         );
 
-      updateBodyOrbitCamera();
+      orbitMinRadius =
+        Math.max(
+          1.15,
+          b.size.y * 0.82
+        );
+
+      orbitMaxRadius =
+        Math.max(
+          5.8,
+          b.size.y * 3.6
+        );
+
+      desiredOrbitRadius =
+        THREE.MathUtils.clamp(
+          Math.max(
+            2.45,
+            b.size.y * 1.85
+          ),
+          orbitMinRadius,
+          orbitMaxRadius
+        );
+
+      desiredOrbitTarget.set(
+        b.center.x,
+        b.box.min.y +
+          b.size.y * 0.54,
+        b.center.z
+      );
+
+      orbitTarget.copy(
+        desiredOrbitTarget
+      );
+
+      updateBodyOrbitCamera(
+        true
+      );
+    }
+
+    function setBodyView() {
+      bodyView =
+        true;
+
+      resetBodyCamera();
     }
 
     function setFirstPerson() {
@@ -2196,6 +2335,21 @@
         lookDown
       );
 
+    document.getElementById("resetCameraBtn")
+      .addEventListener(
+        "click",
+        () => {
+          if (!bodyView) {
+            setBodyView();
+          } else {
+            resetBodyCamera();
+          }
+
+          statusEl.textContent =
+            "BODY VIEW camera reset.";
+        }
+      );
+
     let dragging =
       false;
 
@@ -2212,7 +2366,7 @@
       0.004;
 
     const orbitSensitivity =
-      0.0052;
+      0.0048;
 
     function touchDistance(t0, t1) {
       const dx =
@@ -2260,23 +2414,24 @@
         y;
 
       if (bodyView) {
-        // Orbit around the body instead of locking the camera.
-        orbitAzimuth -=
+        // Full horizontal orbit remains available.
+        desiredOrbitAzimuth -=
           dx *
           orbitSensitivity;
 
-        orbitElevation +=
+        // Vertical orbit is deliberately limited so the camera cannot
+        // swing far underneath or directly over the model.
+        desiredOrbitElevation +=
           dy *
           orbitSensitivity;
 
-        orbitElevation =
+        desiredOrbitElevation =
           THREE.MathUtils.clamp(
-            orbitElevation,
-            THREE.MathUtils.degToRad(-55),
-            THREE.MathUtils.degToRad(72)
+            desiredOrbitElevation,
+            ORBIT_MIN_ELEVATION,
+            ORBIT_MAX_ELEVATION
           );
 
-        updateBodyOrbitCamera();
         return;
       }
 
@@ -2309,22 +2464,27 @@
         return;
       }
 
+      // Exponential-ish pinch scaling feels smoother than hard linear jumps.
       const ratio =
         pinchDistance /
         currentDistance;
 
-      orbitRadius =
-        THREE.MathUtils.clamp(
-          orbitRadius *
+      const softenedRatio =
+        Math.pow(
           ratio,
+          0.72
+        );
+
+      desiredOrbitRadius =
+        THREE.MathUtils.clamp(
+          desiredOrbitRadius *
+          softenedRatio,
           orbitMinRadius,
           orbitMaxRadius
         );
 
       pinchDistance =
         currentDistance;
-
-      updateBodyOrbitCamera();
     }
 
     function endDrag() {
@@ -2451,7 +2611,7 @@
       }
 
       if (bodyView) {
-        // Keep the orbit orientation stable while the model morphs.
+        // Smooth orbit/zoom while keeping the target centered as the body morphs.
         updateBodyOrbitCamera();
       } else {
         euler.set(
@@ -2594,7 +2754,7 @@
         "none";
 
       statusEl.textContent =
-        "V25 ready. Morph system unchanged. Use HIDE UI for an unobstructed view; drag in BODY VIEW to orbit and pinch to zoom.";
+        "V26 ready. Morph system unchanged. BODY VIEW now has smoother orbit/zoom limits and a reset camera button.";
     }
 
     setup().catch(
