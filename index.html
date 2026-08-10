@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game V28 - Realistic Textured Transformation</title>
+  <title>Transformation Game V29 - Safe Material + Texture Morph</title>
 
   <style>
     * {
@@ -196,12 +196,12 @@
 <body>
   <div id="game"></div>
   <button id="uiToggle" type="button">HIDE UI</button>
-  <div id="loading">Loading V28 and searching for skin textures...</div>
+  <div id="loading">Loading V29...</div>
   <div id="fatal"></div>
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game - V28 Realistic Textured Transformation</div>
+      <div class="title">Transformation Game - V29 Safe Material + Texture Morph</div>
       <div id="status" class="status">Loading both real endpoint humans...</div>
       <div id="debug" class="debug"></div>
     </div>
@@ -286,320 +286,12 @@
       }
     );
 
-    // =========================================================
-    // TEXTURE AUTO-DETECTION
-    // =========================================================
-
-    const textureLoader =
-      new THREE.TextureLoader();
-
-    let maleSkinTexture =
-      null;
-
-    let femaleSkinTexture =
-      null;
-
-    let textureReport =
-      "textures: not checked yet";
-
-    const bridgeBlendMaterials =
-      [];
-
-    const MALE_TEXTURE_CANDIDATES = [
-      "./adult-male.png",
-      "./adult-male.jpg",
-      "./adult-male.jpeg",
-      "./adult-male.webp",
-      "./adult_male.png",
-      "./adult_male.jpg",
-      "./adult_male.jpeg",
-      "./adult_male.webp",
-      "./adult-male-lod.png",
-      "./adult-male-lod.jpg",
-      "./adult-male-diffuse.png",
-      "./adult-male-diffuse.jpg",
-      "./adult-male-texture.png",
-      "./adult-male-texture.jpg",
-      "./adult-male-skin.png",
-      "./adult-male-skin.jpg",
-      "./adult-male_BaseColor.png",
-      "./adult-male_BaseColor.jpg",
-      "./adult-male_baseColor.png",
-      "./adult-male_baseColor.jpg",
-      "./adult-male_albedo.png",
-      "./adult-male_albedo.jpg",
-      "./male.png",
-      "./male.jpg",
-      "./male-skin.png",
-      "./male-skin.jpg",
-      "./textures/adult-male.png",
-      "./textures/adult-male.jpg",
-      "./textures/adult_male.png",
-      "./textures/adult_male.jpg",
-      "./textures/adult-male-lod.png",
-      "./textures/adult-male-lod.jpg",
-      "./textures/adult-male-diffuse.png",
-      "./textures/adult-male-diffuse.jpg",
-      "./textures/adult-male_BaseColor.png",
-      "./textures/adult-male_BaseColor.jpg",
-      "./adult-male/adult-male.png",
-      "./adult-male/adult-male.jpg",
-      "./adult-male/adult-male-diffuse.png",
-      "./adult-male/adult-male-diffuse.jpg",
-      "./characters/essential/adult-male/adult-male.png",
-      "./characters/essential/adult-male/adult-male.jpg",
-      "./characters/essential/adult-male/adult-male-diffuse.png",
-      "./characters/essential/adult-male/adult-male-diffuse.jpg"
-    ];
-
-    const FEMALE_TEXTURE_CANDIDATES = [
-      "./adult-female.png",
-      "./adult-female.jpg",
-      "./adult-female.jpeg",
-      "./adult-female.webp",
-      "./adult_female.png",
-      "./adult_female.jpg",
-      "./adult_female.jpeg",
-      "./adult_female.webp",
-      "./adult-female-lod.png",
-      "./adult-female-lod.jpg",
-      "./adult-female-diffuse.png",
-      "./adult-female-diffuse.jpg",
-      "./adult-female-texture.png",
-      "./adult-female-texture.jpg",
-      "./adult-female-skin.png",
-      "./adult-female-skin.jpg",
-      "./adult-female_BaseColor.png",
-      "./adult-female_BaseColor.jpg",
-      "./adult-female_baseColor.png",
-      "./adult-female_baseColor.jpg",
-      "./adult-female_albedo.png",
-      "./adult-female_albedo.jpg",
-      "./female.png",
-      "./female.jpg",
-      "./female-skin.png",
-      "./female-skin.jpg",
-      "./textures/adult-female.png",
-      "./textures/adult-female.jpg",
-      "./textures/adult_female.png",
-      "./textures/adult_female.jpg",
-      "./textures/adult-female-lod.png",
-      "./textures/adult-female-lod.jpg",
-      "./textures/adult-female-diffuse.png",
-      "./textures/adult-female-diffuse.jpg",
-      "./textures/adult-female_BaseColor.png",
-      "./textures/adult-female_BaseColor.jpg",
-      "./adult-female/adult-female.png",
-      "./adult-female/adult-female.jpg",
-      "./adult-female/adult-female-diffuse.png",
-      "./adult-female/adult-female-diffuse.jpg",
-      "./characters/essential/adult-female/adult-female.png",
-      "./characters/essential/adult-female/adult-female.jpg",
-      "./characters/essential/adult-female/adult-female-diffuse.png",
-      "./characters/essential/adult-female/adult-female-diffuse.jpg"
-    ];
-
-    async function tryLoadTexture(label, candidates) {
-      for (const path of candidates) {
-        try {
-          const texture =
-            await textureLoader.loadAsync(path);
-
-          texture.name =
-            `${label}: ${path}`;
-
-          texture.colorSpace =
-            THREE.SRGBColorSpace;
-
-          texture.flipY =
-            false;
-
-          texture.wrapS =
-            THREE.ClampToEdgeWrapping;
-
-          texture.wrapT =
-            THREE.ClampToEdgeWrapping;
-
-          texture.anisotropy =
-            Math.min(
-              8,
-              renderer.capabilities.getMaxAnisotropy()
-            );
-
-          return {
-            texture,
-            path
-          };
-        } catch (err) {
-          // Optional texture was not found. Try the next possible filename.
-        }
-      }
-
-      return {
-        texture: null,
-        path: null
-      };
-    }
-
-    function applyTextureToModel(root, texture) {
-      if (!texture) return 0;
-
-      let changed =
-        0;
-
-      root.traverse(obj => {
-        if (
-          !obj.isMesh &&
-          !obj.isSkinnedMesh
-        ) {
-          return;
-        }
-
-        const mats =
-          Array.isArray(obj.material)
-            ? obj.material
-            : [obj.material];
-
-        for (const mat of mats) {
-          if (!mat) continue;
-
-          mat.map =
-            texture;
-
-          mat.color?.set?.(0xffffff);
-
-          mat.needsUpdate =
-            true;
-
-          changed++;
-        }
-      });
-
-      return changed;
-    }
-
-    function makeBridgeBlendMaterial(baseMaterial) {
-      const mat =
-        baseMaterial
-          ? baseMaterial.clone()
-          : new THREE.MeshStandardMaterial({
-              color: 0xffffff,
-              roughness: 0.78
-            });
-
-      if (femaleSkinTexture) {
-        mat.map =
-          femaleSkinTexture;
-      } else if (maleSkinTexture) {
-        mat.map =
-          maleSkinTexture;
-      }
-
-      mat.color?.set?.(0xffffff);
-      mat.roughness = 0.78;
-      mat.metalness = 0.0;
-
-      mat.userData.bridgeUniforms = {
-        progress: {
-          value: 0
-        },
-        maleMap: {
-          value: maleSkinTexture
-        },
-        hasMaleMap: {
-          value: maleSkinTexture ? 1 : 0
-        },
-        maleTint: {
-          value: new THREE.Color(0xd7b09a)
-        },
-        femaleTint: {
-          value: new THREE.Color(0xe2bba5)
-        }
-      };
-
-      mat.onBeforeCompile = shader => {
-        shader.uniforms.bridgeProgress =
-          mat.userData.bridgeUniforms.progress;
-
-        shader.uniforms.bridgeMaleMap =
-          mat.userData.bridgeUniforms.maleMap;
-
-        shader.uniforms.bridgeHasMaleMap =
-          mat.userData.bridgeUniforms.hasMaleMap;
-
-        shader.uniforms.bridgeMaleTint =
-          mat.userData.bridgeUniforms.maleTint;
-
-        shader.uniforms.bridgeFemaleTint =
-          mat.userData.bridgeUniforms.femaleTint;
-
-        shader.fragmentShader =
-          shader.fragmentShader.replace(
-            "#include <common>",
-            `#include <common>
-uniform float bridgeProgress;
-uniform sampler2D bridgeMaleMap;
-uniform float bridgeHasMaleMap;
-uniform vec3 bridgeMaleTint;
-uniform vec3 bridgeFemaleTint;`
-          );
-
-        shader.fragmentShader =
-          shader.fragmentShader.replace(
-            "#include <map_fragment>",
-            `
-#ifdef USE_MAP
-  vec4 femaleTexel = texture2D(map, vMapUv);
-  femaleTexel = mapTexelToLinear(femaleTexel);
-#else
-  vec4 femaleTexel = vec4(bridgeFemaleTint, 1.0);
-#endif
-
-vec4 maleTexel = vec4(bridgeMaleTint, 1.0);
-
-#ifdef USE_MAP
-  if (bridgeHasMaleMap > 0.5) {
-    maleTexel = texture2D(bridgeMaleMap, vMapUv);
-    maleTexel = mapTexelToLinear(maleTexel);
-  }
-#endif
-
-vec4 blendedTexel = mix(
-  maleTexel,
-  femaleTexel,
-  smoothstep(0.0, 1.0, bridgeProgress)
-);
-
-diffuseColor *= blendedTexel;
-`
-          );
-      };
-
-      bridgeBlendMaterials.push(
-        mat
-      );
-
-      return mat;
-    }
-
-    function updateBridgeMaterialProgress(progress) {
-      for (const mat of bridgeBlendMaterials) {
-        if (
-          mat?.userData?.bridgeUniforms?.progress
-        ) {
-          mat.userData.bridgeUniforms.progress.value =
-            progress;
-        }
-      }
-    }
-
-
     function fail(error) {
       console.error(error);
       loading.style.display = "none";
       fatal.style.display = "block";
       fatal.textContent =
-        "V20 ERROR\n\n" +
+        "V29 ERROR\n\n" +
         (error?.stack || error?.message || String(error)) +
         "\n\nSend me a screenshot of this red box.";
     }
@@ -1088,6 +780,197 @@ diffuseColor *= blendedTexel;
     }
 
     // =========================================================
+    // SAFE MODEL MATERIAL / TEXTURE MORPH
+    // =========================================================
+    //
+    // V29 intentionally does NOT patch Three.js shaders and does NOT
+    // guess external texture filenames. It uses whatever materials/maps
+    // GLTFLoader already loaded from the two .glb files.
+    //
+    // The male material is the opaque base layer.
+    // The female material is a transparent overlay that gradually becomes
+    // opaque during the morph. This keeps the body visible even if a
+    // material or texture is missing.
+
+    let embeddedMaleMapCount = 0;
+    let embeddedFemaleMapCount = 0;
+    let embeddedMaleMaterialCount = 0;
+    let embeddedFemaleMaterialCount = 0;
+
+    function materialArray(material) {
+      if (Array.isArray(material)) {
+        return material.filter(Boolean);
+      }
+
+      return material
+        ? [material]
+        : [];
+    }
+
+    function inspectModelMaterials(root, sexLabel) {
+      let materialCount = 0;
+      let mapCount = 0;
+
+      root.traverse(obj => {
+        if (
+          !obj.isMesh &&
+          !obj.isSkinnedMesh
+        ) {
+          return;
+        }
+
+        for (const mat of materialArray(obj.material)) {
+          materialCount++;
+
+          if (mat.map) {
+            mapCount++;
+          }
+        }
+      });
+
+      if (sexLabel === "male") {
+        embeddedMaleMaterialCount =
+          materialCount;
+
+        embeddedMaleMapCount =
+          mapCount;
+      } else {
+        embeddedFemaleMaterialCount =
+          materialCount;
+
+        embeddedFemaleMapCount =
+          mapCount;
+      }
+    }
+
+    function cloneOpaqueMaterial(mat, fallbackColor = 0xd5ad94) {
+      const clone =
+        mat
+          ? mat.clone()
+          : new THREE.MeshStandardMaterial({
+              color: fallbackColor,
+              roughness: 0.78,
+              metalness: 0.0
+            });
+
+      clone.transparent =
+        false;
+
+      clone.opacity =
+        1;
+
+      clone.depthWrite =
+        true;
+
+      clone.depthTest =
+        true;
+
+      clone.polygonOffset =
+        false;
+
+      clone.side =
+        THREE.FrontSide;
+
+      clone.needsUpdate =
+        true;
+
+      return clone;
+    }
+
+    function cloneFemaleOverlayMaterial(mat, fallbackColor = 0xe0b79e) {
+      const clone =
+        mat
+          ? mat.clone()
+          : new THREE.MeshStandardMaterial({
+              color: fallbackColor,
+              roughness: 0.76,
+              metalness: 0.0
+            });
+
+      clone.transparent =
+        true;
+
+      clone.opacity =
+        0;
+
+      // Male base remains the depth-writing surface.
+      clone.depthWrite =
+        false;
+
+      clone.depthTest =
+        true;
+
+      // Pull the overlay slightly forward in depth without changing geometry.
+      clone.polygonOffset =
+        true;
+
+      clone.polygonOffsetFactor =
+        -1;
+
+      clone.polygonOffsetUnits =
+        -1;
+
+      clone.side =
+        THREE.FrontSide;
+
+      clone.needsUpdate =
+        true;
+
+      return clone;
+    }
+
+    function cloneMaterialSet(material, overlay = false) {
+      const source =
+        materialArray(material);
+
+      if (source.length === 0) {
+        return overlay
+          ? cloneFemaleOverlayMaterial(null)
+          : cloneOpaqueMaterial(null);
+      }
+
+      const cloned =
+        source.map(mat =>
+          overlay
+            ? cloneFemaleOverlayMaterial(mat)
+            : cloneOpaqueMaterial(mat)
+        );
+
+      return Array.isArray(material)
+        ? cloned
+        : cloned[0];
+    }
+
+    function setMaterialOpacity(material, opacity) {
+      for (const mat of materialArray(material)) {
+        mat.opacity =
+          opacity;
+
+        mat.visible =
+          opacity > 0.001;
+      }
+    }
+
+    function copyGeometryGroups(sourceGeometry, targetGeometry) {
+      targetGeometry.clearGroups();
+
+      if (
+        !sourceGeometry.groups ||
+        sourceGeometry.groups.length === 0
+      ) {
+        return;
+      }
+
+      for (const group of sourceGeometry.groups) {
+        targetGeometry.addGroup(
+          group.start,
+          group.count,
+          group.materialIndex
+        );
+      }
+    }
+
+    // =========================================================
     // BRIDGE DATA
     // =========================================================
 
@@ -1115,18 +998,18 @@ diffuseColor *= blendedTexel;
     const CURVE_PROFILE = {
       // The target starts from the actual female model.
       // These are moderate, localized adjustments only.
-      bustForward: 0.26,
-      bustSide: 0.012,
-      waistScale: 0.052,
-      hipScale: 0.050,
-      thighScale: 0.020,
-      gluteDepth: 0.060,
-      abdomenFlatten: 0.034
+      bustForward: 0.30,
+      bustSide: 0.020,
+      waistScale: 0.055,
+      hipScale: 0.060,
+      thighScale: 0.024,
+      gluteDepth: 0.075,
+      abdomenFlatten: 0.030
     };
 
     const FEMALE_AUTHORED_MORPHS = {
       skinny: 0.02,
-      muscular: 0.28,
+      muscular: 0.22,
       obese: 0.00
     };
 
@@ -2022,42 +1905,66 @@ diffuseColor *= blendedTexel;
           );
         }
 
+        // Preserve the source GLB's material slots/groups.
+        copyGeometryGroups(
+          femaleMesh.geometry,
+          geometry
+        );
+
         geometry.computeVertexNormals();
 
-        let material;
+        const maleSourceMesh =
+          femaleToMaleMesh.get(
+            femaleMesh
+          );
 
-        if (Array.isArray(femaleMesh.material)) {
-          material =
-            femaleMesh.material.map(
-              m => makeBridgeBlendMaterial(m)
-            );
-        } else if (femaleMesh.material) {
-          material =
-            makeBridgeBlendMaterial(
-              femaleMesh.material
-            );
-        } else {
-          material =
-            makeBridgeBlendMaterial(
-              null
-            );
-        }
+        const maleMaterial =
+          cloneMaterialSet(
+            maleSourceMesh?.material || femaleMesh.material,
+            false
+          );
 
+        const femaleMaterial =
+          cloneMaterialSet(
+            femaleMesh.material,
+            true
+          );
+
+        // One shared geometry, two material layers.
+        // The opaque male layer guarantees the model never disappears.
         const bridgeMesh =
           new THREE.Mesh(
             geometry,
-            material
+            maleMaterial
           );
 
         bridgeMesh.frustumCulled =
           false;
 
+        const femaleOverlayMesh =
+          new THREE.Mesh(
+            geometry,
+            femaleMaterial
+          );
+
+        femaleOverlayMesh.frustumCulled =
+          false;
+
+        femaleOverlayMesh.renderOrder =
+          2;
+
         bridgeGroup.add(
           bridgeMesh
         );
 
+        bridgeGroup.add(
+          femaleOverlayMesh
+        );
+
         bridgeParts.push({
           mesh: bridgeMesh,
+          femaleOverlayMesh,
+          femaleMaterial,
           start,
           target
         });
@@ -2089,7 +1996,9 @@ diffuseColor *= blendedTexel;
         `torso semantic samples: ${femaleSemanticBounds?.torsoSamples ?? 0}\n` +
         `lower-body semantic samples: ${femaleSemanticBounds?.lowerSamples ?? 0}\n` +
         `realism protection: arms/hands + head/neck + calves/feet excluded from curve sculpt\n` +
-        `${textureReport}`;
+        `GLB male materials/maps: ${embeddedMaleMaterialCount}/${embeddedMaleMapCount}\n` +
+        `GLB female materials/maps: ${embeddedFemaleMaterialCount}/${embeddedFemaleMapCount}\n` +
+        `texture method: embedded GLB materials only; safe overlay blend; no shader patching`;
 
       maleRoot.visible =
         false;
@@ -2122,11 +2031,21 @@ diffuseColor *= blendedTexel;
       const t =
         smootherstep(p);
 
-      updateBridgeMaterialProgress(
-        t
-      );
+      // Texture/material transition is deliberately slightly delayed so
+      // the physical body starts changing before the female skin/material
+      // fully takes over.
+      const materialT =
+        THREE.MathUtils.smoothstep(
+          t,
+          0.08,
+          0.92
+        );
 
       for (const part of bridgeParts) {
+        setMaterialOpacity(
+          part.femaleMaterial,
+          materialT
+        );
         const live =
           part.mesh.geometry
             .attributes.position.array;
@@ -3002,43 +2921,17 @@ diffuseColor *= blendedTexel;
         femaleRoot
       );
 
-      statusEl.textContent =
-        "Looking for downloaded skin textures...";
+      // These materials/textures came in through GLTFLoader.
+      // No network texture probing is required.
+      inspectModelMaterials(
+        maleRoot,
+        "male"
+      );
 
-      const maleTextureResult =
-        await tryLoadTexture(
-          "male skin",
-          MALE_TEXTURE_CANDIDATES
-        );
-
-      const femaleTextureResult =
-        await tryLoadTexture(
-          "female skin",
-          FEMALE_TEXTURE_CANDIDATES
-        );
-
-      maleSkinTexture =
-        maleTextureResult.texture;
-
-      femaleSkinTexture =
-        femaleTextureResult.texture;
-
-      textureReport =
-        `textures: male ${maleTextureResult.path || "not found"}, female ${femaleTextureResult.path || "not found"}`;
-
-      if (maleSkinTexture) {
-        applyTextureToModel(
-          maleRoot,
-          maleSkinTexture
-        );
-      }
-
-      if (femaleSkinTexture) {
-        applyTextureToModel(
-          femaleRoot,
-          femaleSkinTexture
-        );
-      }
+      inspectModelMaterials(
+        femaleRoot,
+        "female"
+      );
 
       normalizeModel(
         maleRoot,
@@ -3125,7 +3018,7 @@ diffuseColor *= blendedTexel;
         "none";
 
       statusEl.textContent =
-        "V28 ready. Textures are enabled when matching image files exist in the repo. The bridge transforms from male-shaped/textured body toward the real female topology with a localized curvy-athletic sculpt.";
+        "V29 ready. The V27 camera/body system is restored, and the bridge now safely blends the materials/textures already contained in the male and female GLB models.";
     }
 
     setup().catch(
