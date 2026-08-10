@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game V22 - Curvy Athletic Endpoint Bridge</title>
+  <title>Transformation Game V23 - Fuller Chest Athletic Bridge</title>
 
   <style>
     * {
@@ -167,12 +167,12 @@
 
 <body>
   <div id="game"></div>
-  <div id="loading">Loading V22 and building the curvy-athletic weighted bone-volume bridge...</div>
+  <div id="loading">Loading V23 and building the fuller-chest athletic weighted bone-volume bridge...</div>
   <div id="fatal"></div>
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game - V22 Curvy Athletic Endpoint Bridge</div>
+      <div class="title">Transformation Game - V23 Fuller Chest Athletic Bridge</div>
       <div id="status" class="status">Loading both real endpoint humans...</div>
       <div id="debug" class="debug"></div>
     </div>
@@ -726,15 +726,17 @@
 
     const CURVE_PROFILE = {
       // Curvy athletic, not plus-size:
-      // stronger chest projection, athletic waist/hips, less soft widening.
-      chestOut: 0.030,
-      chestForward: 0.145,
-      hipsOut: 0.045,
-      waistIn: 0.050,
-      thighOut: 0.018,
-      buttBack: 0.024,
-      shoulderOut: 0.018,
-      abdomenTighten: 0.020
+      // fuller chest, trim waist, athletic hips, smoother hip-to-thigh transition.
+      chestOut: 0.060,
+      chestForward: 0.245,
+      chestUnderCurve: 0.018,
+      hipsOut: 0.035,
+      hipThighBlend: 0.022,
+      waistIn: 0.054,
+      thighOut: 0.016,
+      buttBack: 0.018,
+      shoulderOut: 0.014,
+      abdomenTighten: 0.024
     };
 
     function bandMask(v, a, b, c, d) {
@@ -759,47 +761,60 @@
       const absX = Math.abs(nx);
       const side = nx < 0 ? -1 : 1;
 
+      function bell(value, centerValue, width) {
+        const d = (value - centerValue) / Math.max(0.0001, width);
+        return Math.exp(-d * d * 0.5);
+      }
+
       // Athletic hourglass zones.
       const shoulderBand = bandMask(ny, 0.70, 0.76, 0.84, 0.90);
-      const chestBand    = bandMask(ny, 0.55, 0.62, 0.74, 0.82);
-      const waistBand    = bandMask(ny, 0.47, 0.54, 0.64, 0.70);
-      const hipBand      = bandMask(ny, 0.37, 0.45, 0.56, 0.64);
-      const thighBand    = bandMask(ny, 0.22, 0.30, 0.40, 0.50);
-      const buttBand     = bandMask(ny, 0.35, 0.43, 0.56, 0.64);
+      const chestBand    = bandMask(ny, 0.54, 0.60, 0.76, 0.83);
+      const waistBand    = bandMask(ny, 0.46, 0.53, 0.64, 0.71);
+
+      // Broader overlapping lower-body bands to remove the sudden hip shelf.
+      const hipBand      = bandMask(ny, 0.34, 0.43, 0.59, 0.69);
+      const thighBand    = bandMask(ny, 0.18, 0.28, 0.45, 0.58);
+      const hipThighBand = bandMask(ny, 0.23, 0.34, 0.56, 0.68);
+      const buttBand     = bandMask(ny, 0.34, 0.43, 0.56, 0.65);
       const abdomenBand  = bandMask(ny, 0.48, 0.55, 0.67, 0.75);
 
-      // Two separate chest lobes, not a single torso blob.
-      const bustSeparation = THREE.MathUtils.smoothstep(absX, 0.10, 0.24);
-      const bustOuterFade = 1 - THREE.MathUtils.smoothstep(absX, 0.46, 0.88);
-      const bustLobe = chestBand * bustSeparation * bustOuterFade;
+      // Two clear breast lobes, centered left/right, with a protected sternum gap.
+      const bustLobeCenter = bell(absX, 0.31, 0.17);
+      const sternumGap = 1 - bell(absX, 0.0, 0.105);
+      const outerFade = 1 - THREE.MathUtils.smoothstep(absX, 0.58, 0.94);
+      const bustLobe = chestBand * bustLobeCenter * sternumGap * outerFade;
 
-      // Keep shoulders athletic instead of shrinking them too much.
+      // Keep shoulders athletic instead of tiny.
       out.x += side * size.x * CURVE_PROFILE.shoulderOut * shoulderBand * (0.35 + absX * 0.65);
 
-      // Athletic hips: visibly curvy, but not wide/soft.
-      out.x += side * size.x * CURVE_PROFILE.hipsOut * hipBand * (0.25 + absX * 0.75);
+      // Smooth athletic lower body:
+      // moderate hips, no plus-size widening, and no harsh horizontal hip cutoff.
+      const lowerCurve =
+        CURVE_PROFILE.hipsOut * hipBand +
+        CURVE_PROFILE.thighOut * thighBand +
+        CURVE_PROFILE.hipThighBlend * hipThighBand;
 
-      // Light thigh fullness only. This avoids the "fat" look.
-      out.x += side * size.x * CURVE_PROFILE.thighOut * thighBand * (0.25 + absX * 0.75);
+      out.x += side * size.x * lowerCurve * (0.20 + absX * 0.80);
 
-      // Waist pinch for athletic hourglass shape.
+      // Trim waist for athletic hourglass shape.
       out.x -= side * size.x * CURVE_PROFILE.waistIn * waistBand * (0.20 + absX * 0.80);
 
-      // Chest width only on the lobes, not across the whole upper torso.
+      // Fuller chest, but only on the two lobes rather than the whole torso.
       out.x += side * size.x * CURVE_PROFILE.chestOut * bustLobe;
 
-      // Stronger forward chest projection.
-      // Camera/front direction for these models reads best with +Z here.
-      const frontMask = THREE.MathUtils.smoothstep(nz, -0.10, 0.24);
+      // Stronger forward projection.
+      // If the camera/front direction changes later, this is the value to flip.
+      const frontMask = THREE.MathUtils.smoothstep(nz, -0.12, 0.22);
       out.z += size.z * CURVE_PROFILE.chestForward * bustLobe * frontMask;
 
-      // Slight lower-bust drop to make the chest read as volume instead of flat swelling.
-      out.y -= size.y * 0.010 * bustLobe;
+      // Subtle lower curve so the chest reads as volume from the front.
+      const lowerBust = chestBand * bell(absX, 0.30, 0.20) * bandMask(ny, 0.55, 0.60, 0.67, 0.73);
+      out.y -= size.y * CURVE_PROFILE.chestUnderCurve * lowerBust;
 
-      // Tight athletic abdomen: flatten a bit instead of adding belly mass.
+      // Tight athletic abdomen: flatten slightly instead of adding belly mass.
       out.z -= size.z * CURVE_PROFILE.abdomenTighten * abdomenBand * frontMask;
 
-      // Small glute fullness, deliberately restrained.
+      // Restrained glute fullness.
       const backMask = 1 - THREE.MathUtils.smoothstep(nz, -0.22, 0.06);
       out.z -= size.z * CURVE_PROFILE.buttBack * buttBand * backMask;
 
@@ -1135,8 +1150,8 @@
         `correspondence: full skin-weight blend + normalized bone volume\n` +
         `rank sorting: NONE\n` +
         `nearest-point matching: NONE\n` +
-        `100% target: curvy athletic female geometry\n` +
-        `curve profile: athletic shoulders + bigger chest + trim waist + moderate hips`;
+        `100% target: fuller-chest curvy athletic geometry\n` +
+        `curve profile: fuller chest + trim waist + smoother athletic hips`;
 
       maleRoot.visible =
         false;
@@ -1251,7 +1266,7 @@
 
       if (mode === "bridge") {
         statusEl.textContent =
-          "Bridge body - weighted bone-volume start, curvy athletic female target.";
+          "Bridge body - weighted bone-volume start, fuller-chest athletic female target.";
       } else if (mode === "male") {
         statusEl.textContent =
           "Real male endpoint reference.";
@@ -1733,7 +1748,7 @@
         "none";
 
       statusEl.textContent =
-        "V22 ready. Female topology starts in a male-shaped bridge, then transforms into a curvy athletic female endpoint: bigger chest, trim waist, moderate hips, not plus-size.";
+        "V23 ready. Female topology starts in a male-shaped bridge, then transforms into a fuller-chest curvy athletic endpoint with a trim waist and smoother hips.";
     }
 
     setup().catch(
