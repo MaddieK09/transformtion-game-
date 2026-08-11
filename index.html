@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Transformation Game V29 - Safe Material + Texture Morph</title>
+  <title>Transformation Game V30 - Embedded Texture Fidelity</title>
 
   <style>
     * {
@@ -196,12 +196,12 @@
 <body>
   <div id="game"></div>
   <button id="uiToggle" type="button">HIDE UI</button>
-  <div id="loading">Loading V29...</div>
+  <div id="loading">Loading V30 and restoring full GLB texture data...</div>
   <div id="fatal"></div>
 
   <div id="hud">
     <div class="panel">
-      <div class="title">Transformation Game - V29 Safe Material + Texture Morph</div>
+      <div class="title">Transformation Game - V30 Embedded Texture Fidelity</div>
       <div id="status" class="status">Loading both real endpoint humans...</div>
       <div id="debug" class="debug"></div>
     </div>
@@ -291,7 +291,7 @@
       loading.style.display = "none";
       fatal.style.display = "block";
       fatal.textContent =
-        "V29 ERROR\n\n" +
+        "V30 ERROR\n\n" +
         (error?.stack || error?.message || String(error)) +
         "\n\nSend me a screenshot of this red box.";
     }
@@ -336,7 +336,7 @@
     key.position.set(4, 8, 5);
     scene.add(key);
 
-    const fill = new THREE.DirectionalLight(0xdceaff, 1.0);
+    const fill = new THREE.DirectionalLight(0xdceaff, 0.48);
     fill.position.set(-4, 4, 2);
     scene.add(fill);
 
@@ -783,19 +783,19 @@
     // SAFE MODEL MATERIAL / TEXTURE MORPH
     // =========================================================
     //
-    // V29 intentionally does NOT patch Three.js shaders and does NOT
-    // guess external texture filenames. It uses whatever materials/maps
-    // GLTFLoader already loaded from the two .glb files.
+    // V30 uses ONLY materials/textures already loaded by GLTFLoader.
+    // No guessed external files and no custom shader patching.
     //
-    // The male material is the opaque base layer.
-    // The female material is a transparent overlay that gradually becomes
-    // opaque during the morph. This keeps the body visible even if a
-    // material or texture is missing.
+    // Important fix over V29:
+    // GLB textures can use UV channel 0, 1, 2, etc. V29 copied only `uv`.
+    // V30 copies every UV attribute used by the source female geometry.
 
     let embeddedMaleMapCount = 0;
     let embeddedFemaleMapCount = 0;
     let embeddedMaleMaterialCount = 0;
     let embeddedFemaleMaterialCount = 0;
+    let maleMaterialDetails = [];
+    let femaleMaterialDetails = [];
 
     function materialArray(material) {
       if (Array.isArray(material)) {
@@ -807,9 +807,32 @@
         : [];
     }
 
+    function textureInfo(texture) {
+      if (!texture) {
+        return "none";
+      }
+
+      const image =
+        texture.image ||
+        texture.source?.data;
+
+      const w =
+        image?.width ||
+        image?.videoWidth ||
+        "?";
+
+      const h =
+        image?.height ||
+        image?.videoHeight ||
+        "?";
+
+      return `${w}x${h} uv${texture.channel ?? 0}`;
+    }
+
     function inspectModelMaterials(root, sexLabel) {
       let materialCount = 0;
       let mapCount = 0;
+      const details = [];
 
       root.traverse(obj => {
         if (
@@ -819,13 +842,27 @@
           return;
         }
 
-        for (const mat of materialArray(obj.material)) {
+        const mats =
+          materialArray(
+            obj.material
+          );
+
+        mats.forEach((mat, index) => {
           materialCount++;
 
           if (mat.map) {
             mapCount++;
           }
-        }
+
+          details.push(
+            `${obj.name || "mesh"}[${index}] ` +
+            `${mat.name || mat.type}: ` +
+            `base=${textureInfo(mat.map)}, ` +
+            `normal=${textureInfo(mat.normalMap)}, ` +
+            `rough=${textureInfo(mat.roughnessMap)}, ` +
+            `ao=${textureInfo(mat.aoMap)}`
+          );
+        });
       });
 
       if (sexLabel === "male") {
@@ -834,13 +871,77 @@
 
         embeddedMaleMapCount =
           mapCount;
+
+        maleMaterialDetails =
+          details;
       } else {
         embeddedFemaleMaterialCount =
           materialCount;
 
         embeddedFemaleMapCount =
           mapCount;
+
+        femaleMaterialDetails =
+          details;
       }
+    }
+
+    function prepareLoadedTexture(texture, isColorTexture = false) {
+      if (!texture) return;
+
+      // GLTFLoader already sets orientation correctly. Do not change flipY.
+      if (isColorTexture) {
+        texture.colorSpace =
+          THREE.SRGBColorSpace;
+      }
+
+      texture.anisotropy =
+        Math.min(
+          8,
+          renderer.capabilities.getMaxAnisotropy()
+        );
+
+      texture.needsUpdate =
+        true;
+    }
+
+    function prepareMaterialMaps(mat) {
+      if (!mat) return;
+
+      prepareLoadedTexture(
+        mat.map,
+        true
+      );
+
+      prepareLoadedTexture(
+        mat.emissiveMap,
+        true
+      );
+
+      prepareLoadedTexture(
+        mat.normalMap,
+        false
+      );
+
+      prepareLoadedTexture(
+        mat.roughnessMap,
+        false
+      );
+
+      prepareLoadedTexture(
+        mat.metalnessMap,
+        false
+      );
+
+      prepareLoadedTexture(
+        mat.aoMap,
+        false
+      );
+
+      prepareLoadedTexture(
+        mat.alphaMap,
+        false
+      );
     }
 
     function cloneOpaqueMaterial(mat, fallbackColor = 0xd5ad94) {
@@ -849,9 +950,13 @@
           ? mat.clone()
           : new THREE.MeshStandardMaterial({
               color: fallbackColor,
-              roughness: 0.78,
+              roughness: 0.76,
               metalness: 0.0
             });
+
+      prepareMaterialMaps(
+        clone
+      );
 
       clone.transparent =
         false;
@@ -871,6 +976,9 @@
       clone.side =
         THREE.FrontSide;
 
+      // Preserve the GLB material color instead of forcing white.
+      // This matters because many base-color textures are designed
+      // to be multiplied by their original baseColorFactor.
       clone.needsUpdate =
         true;
 
@@ -883,9 +991,13 @@
           ? mat.clone()
           : new THREE.MeshStandardMaterial({
               color: fallbackColor,
-              roughness: 0.76,
+              roughness: 0.74,
               metalness: 0.0
             });
+
+      prepareMaterialMaps(
+        clone
+      );
 
       clone.transparent =
         true;
@@ -893,14 +1005,12 @@
       clone.opacity =
         0;
 
-      // Male base remains the depth-writing surface.
       clone.depthWrite =
         false;
 
       clone.depthTest =
         true;
 
-      // Pull the overlay slightly forward in depth without changing geometry.
       clone.polygonOffset =
         true;
 
@@ -919,26 +1029,48 @@
       return clone;
     }
 
-    function cloneMaterialSet(material, overlay = false) {
-      const source =
-        materialArray(material);
+    function maxMaterialIndex(geometry) {
+      let maxIndex = 0;
 
-      if (source.length === 0) {
-        return overlay
-          ? cloneFemaleOverlayMaterial(null)
-          : cloneOpaqueMaterial(null);
+      for (const group of geometry.groups || []) {
+        maxIndex =
+          Math.max(
+            maxIndex,
+            group.materialIndex || 0
+          );
       }
 
-      const cloned =
-        source.map(mat =>
-          overlay
-            ? cloneFemaleOverlayMaterial(mat)
-            : cloneOpaqueMaterial(mat)
+      return maxIndex;
+    }
+
+    function fitMaterialSlots(
+      sourceMaterial,
+      requiredSlots,
+      overlay = false
+    ) {
+      const src =
+        materialArray(
+          sourceMaterial
         );
 
-      return Array.isArray(material)
-        ? cloned
-        : cloned[0];
+      const out = [];
+
+      for (let i = 0; i < requiredSlots; i++) {
+        const source =
+          src[i] ||
+          src[src.length - 1] ||
+          null;
+
+        out.push(
+          overlay
+            ? cloneFemaleOverlayMaterial(source)
+            : cloneOpaqueMaterial(source)
+        );
+      }
+
+      return requiredSlots === 1
+        ? out[0]
+        : out;
     }
 
     function setMaterialOpacity(material, opacity) {
@@ -967,6 +1099,31 @@
           group.count,
           group.materialIndex
         );
+      }
+    }
+
+    function copyTextureCoordinateAttributes(
+      sourceGeometry,
+      targetGeometry
+    ) {
+      // BaseColorTexture may use TEXCOORD_0, TEXCOORD_1, etc.
+      // In Three.js these appear as uv, uv1, uv2...
+      for (
+        const [name, attribute]
+        of Object.entries(
+          sourceGeometry.attributes
+        )
+      ) {
+        if (
+          name === "uv" ||
+          /^uv\d+$/.test(name) ||
+          name === "color"
+        ) {
+          targetGeometry.setAttribute(
+            name,
+            attribute.clone()
+          );
+        }
       }
     }
 
@@ -1898,12 +2055,12 @@
           );
         }
 
-        if (femaleMesh.geometry.attributes.uv) {
-          geometry.setAttribute(
-            "uv",
-            femaleMesh.geometry.attributes.uv.clone()
-          );
-        }
+        // Preserve EVERY texture-coordinate channel used by the GLB.
+        // This is the main V30 texture fix.
+        copyTextureCoordinateAttributes(
+          femaleMesh.geometry,
+          geometry
+        );
 
         // Preserve the source GLB's material slots/groups.
         copyGeometryGroups(
@@ -1918,15 +2075,22 @@
             femaleMesh
           );
 
+        const requiredSlots =
+          maxMaterialIndex(
+            femaleMesh.geometry
+          ) + 1;
+
         const maleMaterial =
-          cloneMaterialSet(
+          fitMaterialSlots(
             maleSourceMesh?.material || femaleMesh.material,
+            requiredSlots,
             false
           );
 
         const femaleMaterial =
-          cloneMaterialSet(
+          fitMaterialSlots(
             femaleMesh.material,
+            requiredSlots,
             true
           );
 
@@ -1996,9 +2160,11 @@
         `torso semantic samples: ${femaleSemanticBounds?.torsoSamples ?? 0}\n` +
         `lower-body semantic samples: ${femaleSemanticBounds?.lowerSamples ?? 0}\n` +
         `realism protection: arms/hands + head/neck + calves/feet excluded from curve sculpt\n` +
-        `GLB male materials/maps: ${embeddedMaleMaterialCount}/${embeddedMaleMapCount}\n` +
-        `GLB female materials/maps: ${embeddedFemaleMaterialCount}/${embeddedFemaleMapCount}\n` +
-        `texture method: embedded GLB materials only; safe overlay blend; no shader patching`;
+        `GLB male materials/base maps: ${embeddedMaleMaterialCount}/${embeddedMaleMapCount}\n` +
+        `GLB female materials/base maps: ${embeddedFemaleMaterialCount}/${embeddedFemaleMapCount}\n` +
+        `male map sample: ${maleMaterialDetails[0] || "none"}\n` +
+        `female map sample: ${femaleMaterialDetails[0] || "none"}\n` +
+        `texture method: embedded GLB maps + all UV channels + preserved baseColorFactor`;
 
       maleRoot.visible =
         false;
@@ -2933,6 +3099,23 @@
         "female"
       );
 
+      // Prepare the materials on the visible reference models too.
+      maleRoot.traverse(obj => {
+        if (obj.isMesh || obj.isSkinnedMesh) {
+          for (const mat of materialArray(obj.material)) {
+            prepareMaterialMaps(mat);
+          }
+        }
+      });
+
+      femaleRoot.traverse(obj => {
+        if (obj.isMesh || obj.isSkinnedMesh) {
+          for (const mat of materialArray(obj.material)) {
+            prepareMaterialMaps(mat);
+          }
+        }
+      });
+
       normalizeModel(
         maleRoot,
         1.80
@@ -3018,7 +3201,7 @@
         "none";
 
       statusEl.textContent =
-        "V29 ready. The V27 camera/body system is restored, and the bridge now safely blends the materials/textures already contained in the male and female GLB models.";
+        "V30 ready. The geometry/camera system is unchanged; V30 preserves all GLB UV channels and material texture slots, reduces washout, and blends the embedded male/female materials during the morph.";
     }
 
     setup().catch(
